@@ -1,141 +1,331 @@
-print("Zaza Hub cargado")
+--// Enhanced Universal Hub 2026
+--// Whitelist por USERNAME
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Services = {
+    RS = game:GetService("RunService"),
+    PL = game:GetService("Players"),
+    UIS = game:GetService("UserInputService"),
+    WS = game:GetService("Workspace"),
+}
 
-local LocalPlayer = Players.LocalPlayer
+local lp = Services.PL.LocalPlayer
+local cam = Services.WS.CurrentCamera
 
-local KillAura = false
-local Range = 30
-local Speed = 0.03
+-- ======================
+-- WHITELIST POR USUARIO
+-- ======================
 
--- BUSCAR REMOTE DE ATAQUE
-local HitRemote
+local whitelistedUsers = {
+    "cxchxrrx_27", -- cambia por tu usuario
+    -- "Amigo1",
+    -- "Amigo2"
+}
 
-pcall(function()
-    HitRemote = ReplicatedStorage
-    :WaitForChild("Packages")
-    :WaitForChild("Knit")
-    :WaitForChild("Services")
-    :WaitForChild("CombatService")
-    :WaitForChild("RF")
-    :WaitForChild("Hit")
+local function hasPermission()
+
+    local myName = lp.Name
+
+    for _, allowedName in ipairs(whitelistedUsers) do
+        if myName == allowedName then
+            return true
+        end
+    end
+
+    return false
+end
+
+if not hasPermission() then
+
+    if lp:FindFirstChild("PlayerGui") then
+
+        local sg = Instance.new("ScreenGui")
+        sg.Parent = lp.PlayerGui
+
+        local txt = Instance.new("TextLabel")
+        txt.Parent = sg
+        txt.Size = UDim2.new(1,0,1,0)
+        txt.BackgroundColor3 = Color3.new(0,0,0)
+        txt.TextColor3 = Color3.new(1,0,0)
+        txt.TextScaled = true
+        txt.Text = "No tienes permiso para usar este script."
+        txt.Font = Enum.Font.GothamBlack
+
+    end
+
+    task.wait(3)
+    lp:Kick("No estás en la whitelist")
+    return
+end
+
+-- ======================
+-- UI
+-- ======================
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "Enhanced Universal Hub 2026",
+   LoadingTitle = "Enhanced Hub",
+   LoadingSubtitle = "Whitelist Version",
+   ConfigurationSaving = {
+      Enabled = false,
+   }
+})
+
+-- ======================
+-- CONFIG
+-- ======================
+
+local cfg = {
+    Aimbot = false,
+    KillAura = false,
+    AuraRange = 25,
+    Speed = false,
+    SpeedValue = 30,
+    Fly = false
+}
+
+-- ======================
+-- TABS
+-- ======================
+
+local CombatTab = Window:CreateTab("Combat")
+local MovementTab = Window:CreateTab("Movement")
+local VisualTab = Window:CreateTab("Visual")
+
+-- ======================
+-- AIMBOT
+-- ======================
+
+CombatTab:CreateToggle({
+   Name = "Aimbot",
+   CurrentValue = false,
+   Callback = function(Value)
+       cfg.Aimbot = Value
+   end,
+})
+
+local function getClosestPlayer()
+
+    local closest = nil
+    local distance = math.huge
+
+    for _,v in pairs(Services.PL:GetPlayers()) do
+
+        if v ~= lp and v.Character and v.Character:FindFirstChild("Head") then
+
+            local pos, visible = cam:WorldToViewportPoint(v.Character.Head.Position)
+
+            if visible then
+
+                local dist = (Vector2.new(pos.X,pos.Y) - Vector2.new(cam.ViewportSize.X/2,cam.ViewportSize.Y/2)).Magnitude
+
+                if dist < distance then
+                    closest = v
+                    distance = dist
+                end
+
+            end
+        end
+    end
+
+    return closest
+end
+
+Services.RS.RenderStepped:Connect(function()
+
+    if cfg.Aimbot then
+
+        local target = getClosestPlayer()
+
+        if target and target.Character then
+
+            cam.CFrame = CFrame.new(
+                cam.CFrame.Position,
+                target.Character.Head.Position
+            )
+
+        end
+    end
 end)
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game.CoreGui
+-- ======================
+-- KILLAURA
+-- ======================
 
-local Frame = Instance.new("Frame")
-Frame.Parent = ScreenGui
-Frame.Size = UDim2.new(0,220,0,140)
-Frame.Position = UDim2.new(0.4,0,0.4,0)
-Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Frame.Active = true
-Frame.Draggable = true
+CombatTab:CreateToggle({
+   Name = "Kill Aura",
+   CurrentValue = false,
+   Callback = function(Value)
+       cfg.KillAura = Value
+   end,
+})
 
-local Title = Instance.new("TextLabel")
-Title.Parent = Frame
-Title.Size = UDim2.new(1,0,0,30)
-Title.Text = "Zaza Hub - by Zaza"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.BackgroundTransparency = 1
+CombatTab:CreateSlider({
+   Name = "Aura Range",
+   Range = {5, 60},
+   Increment = 1,
+   CurrentValue = 25,
+   Callback = function(Value)
+       cfg.AuraRange = Value
+   end,
+})
 
-local Toggle = Instance.new("TextButton")
-Toggle.Parent = Frame
-Toggle.Size = UDim2.new(0.8,0,0,40)
-Toggle.Position = UDim2.new(0.1,0,0.4,0)
-Toggle.Text = "Kill Aura OFF"
-Toggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-Toggle.TextColor3 = Color3.new(1,1,1)
+Services.RS.Heartbeat:Connect(function()
 
-local Min = Instance.new("TextButton")
-Min.Parent = Frame
-Min.Size = UDim2.new(0,30,0,30)
-Min.Position = UDim2.new(1,-35,0,0)
-Min.Text = "-"
+    if not cfg.KillAura then return end
+    if not lp.Character then return end
 
-local MinFrame = Instance.new("Frame")
-MinFrame.Parent = ScreenGui
-MinFrame.Size = UDim2.new(0,120,0,40)
-MinFrame.Position = UDim2.new(0.4,0,0.4,0)
-MinFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-MinFrame.Visible = false
-MinFrame.Active = true
-MinFrame.Draggable = true
+    local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-local Open = Instance.new("TextButton")
-Open.Parent = MinFrame
-Open.Size = UDim2.new(1,0,1,0)
-Open.Text = "Zaza Hub"
+    for _,v in pairs(Services.PL:GetPlayers()) do
 
-Min.MouseButton1Click:Connect(function()
-Frame.Visible = false
-MinFrame.Visible = true
-end)
+        if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
 
-Open.MouseButton1Click:Connect(function()
-Frame.Visible = true
-MinFrame.Visible = false
-end)
+            local dist = (hrp.Position - v.Character.HumanoidRootPart.Position).Magnitude
 
-Toggle.MouseButton1Click:Connect(function()
+            if dist <= cfg.AuraRange then
 
-KillAura = not KillAura
+                local hum = v.Character:FindFirstChild("Humanoid")
 
-if KillAura then
-Toggle.Text = "Kill Aura ON"
-else
-Toggle.Text = "Kill Aura OFF"
-end
+                if hum then
+                    hum:TakeDamage(5)
+                end
+
+            end
+
+        end
+
+    end
 
 end)
 
--- KILL AURA
-RunService.Heartbeat:Connect(function()
+-- ======================
+-- SPEED
+-- ======================
 
-if not KillAura then return end
-if not LocalPlayer.Character then return end
+MovementTab:CreateToggle({
+   Name = "Speed",
+   CurrentValue = false,
+   Callback = function(Value)
+       cfg.Speed = Value
+   end,
+})
 
-local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-if not myHRP then return end
+MovementTab:CreateSlider({
+   Name = "Speed Power",
+   Range = {16, 120},
+   Increment = 1,
+   CurrentValue = 30,
+   Callback = function(Value)
+       cfg.SpeedValue = Value
+   end,
+})
 
-local closest
-local dist = Range
+Services.RS.RenderStepped:Connect(function()
 
-for _,player in pairs(Players:GetPlayers()) do
-
-if player ~= LocalPlayer and player.Character then
-
-local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-local hum = player.Character:FindFirstChild("Humanoid")
-
-if hrp and hum and hum.Health > 0 then
-
-local mag = (hrp.Position - myHRP.Position).Magnitude
-
-if mag < dist then
-dist = mag
-closest = player
-end
-
-end
-end
-end
-
-if closest and closest.Character then
-
-local hum = closest.Character:FindFirstChild("Humanoid")
-
-if hum and HitRemote then
-pcall(function()
-HitRemote:InvokeServer(hum, myHRP.Position)
-end)
-end
-
-end
-
-task.wait(Speed)
+    if cfg.Speed and lp.Character and lp.Character:FindFirstChild("Humanoid") then
+        lp.Character.Humanoid.WalkSpeed = cfg.SpeedValue
+    end
 
 end)
+
+-- ======================
+-- FLY
+-- ======================
+
+MovementTab:CreateToggle({
+   Name = "Fly",
+   CurrentValue = false,
+   Callback = function(Value)
+
+       cfg.Fly = Value
+
+       if Value then
+
+           local body = Instance.new("BodyVelocity")
+           body.Name = "FlyVelocity"
+           body.MaxForce = Vector3.new(1,1,1)*100000
+           body.Parent = lp.Character.HumanoidRootPart
+
+       else
+
+           if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+               if lp.Character.HumanoidRootPart:FindFirstChild("FlyVelocity") then
+                   lp.Character.HumanoidRootPart.FlyVelocity:Destroy()
+               end
+           end
+
+       end
+
+   end,
+})
+
+Services.RS.RenderStepped:Connect(function()
+
+    if cfg.Fly and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+
+        local vel = lp.Character.HumanoidRootPart:FindFirstChild("FlyVelocity")
+
+        if vel then
+            vel.Velocity = cam.CFrame.LookVector * 80
+        end
+
+    end
+
+end)
+
+-- ======================
+-- ESP NAMES
+-- ======================
+
+VisualTab:CreateToggle({
+   Name = "ESP Names",
+   CurrentValue = false,
+   Callback = function(Value)
+
+        for _,v in pairs(Services.PL:GetPlayers()) do
+
+            if v ~= lp and v.Character and v.Character:FindFirstChild("Head") then
+
+                if Value then
+
+                    local bill = Instance.new("BillboardGui")
+                    bill.Name = "ESP_NAME"
+                    bill.Parent = v.Character.Head
+                    bill.Size = UDim2.new(0,100,0,40)
+                    bill.AlwaysOnTop = true
+
+                    local txt = Instance.new("TextLabel")
+                    txt.Parent = bill
+                    txt.Size = UDim2.new(1,0,1,0)
+                    txt.BackgroundTransparency = 1
+                    txt.Text = v.Name
+                    txt.TextColor3 = Color3.new(1,0,0)
+                    txt.TextScaled = true
+
+                else
+
+                    if v.Character.Head:FindFirstChild("ESP_NAME") then
+                        v.Character.Head.ESP_NAME:Destroy()
+                    end
+
+                end
+
+            end
+
+        end
+
+   end,
+})
+
+-- ======================
+-- NOTIFICACIÓN
+-- ======================
+
+Rayfield:Notify({
+   Title = "Enhanced Hub",
+   Content = "Cargado correctamente\nUsuario autorizado: "..lp.Name,
+   Duration = 6,
+})
