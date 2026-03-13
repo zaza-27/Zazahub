@@ -1,8 +1,24 @@
--- KILL AURA SYSTEM
+-- KILL AURA SYSTEM COMPLETO
 
+local TargetPlayer = nil
+local AttackAll = false
 local KillAuraConnection
-local originalHitboxSizes = {}
 
+-- Buscar jugador por nombre
+local function FindPlayer(name)
+
+    for _,player in pairs(Players:GetPlayers()) do
+
+        if string.find(string.lower(player.Name), string.lower(name)) then
+            return player
+        end
+
+    end
+
+end
+
+
+-- Iniciar Kill Aura
 local function StartKillAura()
 
     if not HitRemote then
@@ -10,54 +26,101 @@ local function StartKillAura()
         return
     end
 
-    -- Expandir hitbox
-    for _,player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                originalHitboxSizes[hrp] = hrp.Size
-                hrp.Size = Vector3.new(30,30,30)
-            end
-        end
-    end
-
     KillAuraConnection = RunService.Heartbeat:Connect(function()
 
-        if not LocalPlayer.Character then return end
+        if not Settings.KillAura.Enabled then return end
 
-        local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local char = LocalPlayer.Character
+        if not char then return end
+
+        local myHRP = char:FindFirstChild("HumanoidRootPart")
         if not myHRP then return end
 
-        local closestPlayer = nil
-        local closestDistance = 35
 
-        for _,player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
+        -- 🌍 GOLPEAR A TODOS
+        if AttackAll then
 
-                local hum = player.Character:FindFirstChild("Humanoid")
-                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            for _,player in pairs(Players:GetPlayers()) do
 
-                if hum and hrp and hum.Health > 0 then
+                if player ~= LocalPlayer and player.Character then
 
-                    local distance = (hrp.Position - myHRP.Position).Magnitude
+                    local hum = player.Character:FindFirstChild("Humanoid")
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
 
-                    if distance < closestDistance then
-                        closestDistance = distance
-                        closestPlayer = player
+                    if hum and hrp and hum.Health > 0 then
+
+                        local dist = (hrp.Position - myHRP.Position).Magnitude
+
+                        if dist <= Settings.KillAura.Range then
+                            pcall(function()
+                                HitRemote:InvokeServer(hum, myHRP.Position)
+                            end)
+                        end
+
                     end
 
                 end
+
             end
-        end
 
-        if closestPlayer and closestPlayer.Character then
 
-            local hum = closestPlayer.Character:FindFirstChild("Humanoid")
+        -- 🎯 GOLPEAR OBJETIVO ESPECIFICO
+        elseif TargetPlayer and TargetPlayer.Character then
 
-            if hum then
-                pcall(function()
-                    HitRemote:InvokeServer(hum, myHRP.Position)
-                end)
+            local hum = TargetPlayer.Character:FindFirstChild("Humanoid")
+            local hrp = TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+            if hum and hrp then
+
+                local dist = (hrp.Position - myHRP.Position).Magnitude
+
+                if dist <= Settings.KillAura.Range then
+                    pcall(function()
+                        HitRemote:InvokeServer(hum, myHRP.Position)
+                    end)
+                end
+
+            end
+
+
+        -- 🔎 GOLPEAR AL MAS CERCANO
+        else
+
+            local closest = nil
+            local closestDist = Settings.KillAura.Range
+
+            for _,player in pairs(Players:GetPlayers()) do
+
+                if player ~= LocalPlayer and player.Character then
+
+                    local hum = player.Character:FindFirstChild("Humanoid")
+                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+
+                    if hum and hrp and hum.Health > 0 then
+
+                        local dist = (hrp.Position - myHRP.Position).Magnitude
+
+                        if dist <= closestDist then
+                            closestDist = dist
+                            closest = player
+                        end
+
+                    end
+
+                end
+
+            end
+
+            if closest and closest.Character then
+
+                local hum = closest.Character:FindFirstChild("Humanoid")
+
+                if hum then
+                    pcall(function()
+                        HitRemote:InvokeServer(hum, myHRP.Position)
+                    end)
+                end
+
             end
 
         end
@@ -66,19 +129,13 @@ local function StartKillAura()
 
 end
 
+
+-- Parar Kill Aura
 local function StopKillAura()
 
     if KillAuraConnection then
         KillAuraConnection:Disconnect()
         KillAuraConnection = nil
     end
-
-    for hrp, size in pairs(originalHitboxSizes) do
-        if hrp and hrp.Parent then
-            hrp.Size = size
-        end
-    end
-
-    originalHitboxSizes = {}
 
 end
