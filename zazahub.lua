@@ -17,9 +17,7 @@ local cam = Services.WS.CurrentCamera
 
 local whitelistedUsers = {
     "CXCHXRRX_27",
-    "Rarita_Rmc4",
-    "UsuarioAmigo2",
-    "UsuarioAmigo3"
+    "Rarita_Rmc4"
 }
 
 local function hasPermission()
@@ -327,6 +325,6 @@ VisualTab:CreateToggle({
 
 Rayfield:Notify({
    Title = "Enhanced Hub",
-   Content = "Cargado correctamente\nUsuario autorizado: "..lp.Name,
+   Content = "Cargado correctamente\nUsuario: "..lp.Name,
    Duration = 6,
 })
