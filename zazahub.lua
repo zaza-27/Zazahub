@@ -17,7 +17,7 @@ local cam = Services.WS.CurrentCamera
 
 local whitelistedUsers = {
     "CXCHXRRX_27",
-    "Rarita_Rmc4"
+    "Rarita_RmC4"
 }
 
 local function hasPermission()
