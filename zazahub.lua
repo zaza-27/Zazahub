@@ -1,4 +1,4 @@
---// Enhanced Universal Hub 2026 - Lag-Free Edition
+--// Enhanced Universal Hub 2026 - No Cooldown Edition
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
@@ -10,44 +10,32 @@ local lp = Services.PL.LocalPlayer
 -- ====================== --
 -- WHITELIST FIJA
 -- ====================== --
-local whitelistedUsers = { 
-    "CXCHXRRX_27", 
-    "Rarita_RmC4"
-}
-
+local whitelistedUsers = { "CXCHXRRX_27", "Rarita_RmC4" }
 local function hasPermission()
-    for _, name in ipairs(whitelistedUsers) do
-        if lp.Name == name then return true end
-    end
+    for _, name in ipairs(whitelistedUsers) do if lp.Name == name then return true end end
     return false
 end
-
-if not hasPermission() then
-    lp:Kick("Acceso Denegado.")
-    return
-end
+if not hasPermission() then lp:Kick("Acceso Denegado") return end
 
 -- ====================== --
--- CONFIGURACIÓN OPTIMIZADA
+-- CONFIGURACIÓN DE VELOCIDAD
 -- ====================== --
 local cfg = {
     KillAura = false,
-    AuraRange = 22,    -- Rango ajustado para mejor registro
-    AttackSpeed = 8,   -- Menos golpes por ciclo pero más efectivos (evita lag)
-    HitboxSize = 15,   -- Tamaño más estable
+    AuraRange = 25,
+    AttackSpeed = 40,    -- Ráfaga masiva para eliminar el cooldown
+    HitboxSize = 25,
     TargetMode = "Todos",
-    SelectedPlayer = nil,
-    WaitTime = 0.08    -- Tiempo ideal para que el servidor no se sature
+    SelectedPlayer = nil
 }
 
 local CachedRemote = nil
 local function GetAttackRemote()
     if CachedRemote and CachedRemote.Parent then return CachedRemote end
-    -- Escaneo rápido de remotos comunes
-    local potential = {"Hit", "Attack", "Combat", "Damage", "Swing", "Punch"}
+    local names = {"Hit", "Attack", "Combat", "Damage", "Swing"}
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-            for _, name in pairs(potential) do
+            for _, name in pairs(names) do
                 if v.Name:find(name) or v.Name:lower():find(name:lower()) then
                     CachedRemote = v
                     return v
@@ -59,72 +47,65 @@ local function GetAttackRemote()
 end
 
 -- ====================== --
--- LÓGICA DE ATAQUE FLUIDA
+-- ATAQUE SIN COOLDOWN (INSTANT)
 -- ====================== --
-local function KillShot(target)
+local function FastAttack(target)
     if not target or not target.Character then return end
-    local char = target.Character
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = target.Character:FindFirstChildOfClass("Humanoid")
+    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
     local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
     
-    if not hum or hum.Health <= 0 or not hrp then return end
+    if not hum or hum.Health <= 0 then return end
 
     local remote = GetAttackRemote()
-    if tool then tool:Activate() end -- Simula el click físico
-    
-    if remote then
-        -- Enviamos una ráfaga controlada para evitar "Network Lag"
+    if tool then tool:Activate() end 
+
+    -- Ejecución en paralelo para saltar el cooldown
+    task.spawn(function()
         for i = 1, cfg.AttackSpeed do
-            task.spawn(function()
-                local args = {
-                    [1] = hum,
-                    [2] = hrp.Position,
-                    [3] = hrp -- Algunos juegos piden la parte directamente
-                }
+            if remote then
+                local args = {[1] = hum, [2] = hrp.Position}
                 if remote:IsA("RemoteEvent") then
                     remote:FireServer(unpack(args))
-                elseif remote:IsA("RemoteFunction") then
+                else
                     pcall(function() remote:InvokeServer(unpack(args)) end)
                 end
-            end)
+            end
         end
-    end
+    end)
 end
 
 -- ====================== --
--- BUCLE DE PROCESAMIENTO
+-- BUCLE MAESTRO (ULTRA RÁPIDO)
 -- ====================== --
-task.spawn(function()
-    while task.wait(cfg.WaitTime) do
-        if cfg.KillAura and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
-            local myHRP = lp.Character.HumanoidRootPart
+Services.RS.Heartbeat:Connect(function()
+    if not cfg.KillAura or not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local myHRP = lp.Character.HumanoidRootPart
+    
+    for _, v in pairs(Services.PL:GetPlayers()) do
+        if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             
-            for _, v in pairs(Services.PL:GetPlayers()) do
-                if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-                    
-                    local isTarget = false
-                    if cfg.TargetMode == "Todos" then
-                        isTarget = true
-                    elseif cfg.TargetMode == "Solo Seleccionado" and v.Name == cfg.SelectedPlayer then
-                        isTarget = true
-                    end
+            -- Lógica de Objetivo igualada al Aura Global
+            local isTarget = false
+            if cfg.TargetMode == "Todos" then
+                isTarget = true
+            elseif cfg.TargetMode == "Solo Seleccionado" and v.Name == cfg.SelectedPlayer then
+                isTarget = true
+            end
 
-                    if isTarget then
-                        local enemyHRP = v.Character.HumanoidRootPart
-                        local enemyHum = v.Character:FindFirstChildOfClass("Humanoid")
+            if isTarget then
+                local enemyHRP = v.Character.HumanoidRootPart
+                local enemyHum = v.Character:FindFirstChildOfClass("Humanoid")
+                
+                if enemyHum and enemyHum.Health > 0 then
+                    local dist = (myHRP.Position - enemyHRP.Position).Magnitude
+                    if dist <= cfg.AuraRange then
+                        -- Forzar registro de hit
+                        enemyHRP.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
+                        enemyHRP.CanCollide = false
                         
-                        if enemyHum and enemyHum.Health > 0 then
-                            local dist = (myHRP.Position - enemyHRP.Position).Magnitude
-                            if dist <= cfg.AuraRange then
-                                -- Expansión de hitbox ligera (menos lag)
-                                if enemyHRP.Size.X ~= cfg.HitboxSize then
-                                    enemyHRP.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
-                                    enemyHRP.CanCollide = false
-                                end
-                                KillShot(v)
-                            end
-                        end
+                        FastAttack(v)
                     end
                 end
             end
@@ -137,8 +118,8 @@ end)
 -- ====================== --
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "Hub V2 - Lag-Free",
-    LoadingTitle = "Optimizando...",
+    Name = "Enhanced Hub V3 - NO CD",
+    LoadingTitle = "Modo Agresivo Activado",
     ConfigurationSaving = { Enabled = false }
 })
 
@@ -153,13 +134,13 @@ local function UpdatePlayerList()
 end
 
 CombatTab:CreateToggle({
-    Name = "Kill Aura Fluido",
+    Name = "Kill Aura (Sin Cooldown)",
     CurrentValue = false,
     Callback = function(Value) cfg.KillAura = Value end,
 })
 
 local TargetDropdown = CombatTab:CreateDropdown({
-    Name = "Objetivo",
+    Name = "Seleccionar Objetivo",
     Options = UpdatePlayerList(),
     CurrentOption = {"Ninguno"},
     MultipleOptions = false,
@@ -167,7 +148,7 @@ local TargetDropdown = CombatTab:CreateDropdown({
 })
 
 CombatTab:CreateDropdown({
-    Name = "Modo",
+    Name = "Modo de Ataque",
     Options = {"Todos", "Solo Seleccionado"},
     CurrentOption = {"Todos"},
     MultipleOptions = false,
@@ -175,8 +156,12 @@ CombatTab:CreateDropdown({
 })
 
 CombatTab:CreateButton({
-    Name = "Refrescar Jugadores",
-    Callback = function() 
-        TargetDropdown:Set(UpdatePlayerList())
-    end,
+    Name = "Refrescar Lista",
+    Callback = function() TargetDropdown:Set(UpdatePlayerList()) end,
+})
+
+Rayfield:Notify({
+    Title = "Modo Rapidez Total",
+    Content = "El modo objetivo ahora usa ráfaga de 40 disparos.",
+    Duration = 5,
 })
