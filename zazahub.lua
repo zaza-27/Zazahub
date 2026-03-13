@@ -1,12 +1,27 @@
--- Zaza Hub - By Zaza
+print("Zaza Hub cargado")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local LocalPlayer = Players.LocalPlayer
 
-local Range = 30
 local KillAura = false
-local TargetName = nil
+local Range = 30
+local Speed = 0.03
+
+-- BUSCAR REMOTE DE ATAQUE
+local HitRemote
+
+pcall(function()
+    HitRemote = ReplicatedStorage
+    :WaitForChild("Packages")
+    :WaitForChild("Knit")
+    :WaitForChild("Services")
+    :WaitForChild("CombatService")
+    :WaitForChild("RF")
+    :WaitForChild("Hit")
+end)
 
 -- GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -14,8 +29,8 @@ ScreenGui.Parent = game.CoreGui
 
 local Frame = Instance.new("Frame")
 Frame.Parent = ScreenGui
-Frame.Size = UDim2.new(0,220,0,160)
-Frame.Position = UDim2.new(0.5,-110,0.5,-80)
+Frame.Size = UDim2.new(0,220,0,140)
+Frame.Position = UDim2.new(0.4,0,0.4,0)
 Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 Frame.Active = true
 Frame.Draggable = true
@@ -24,86 +39,103 @@ local Title = Instance.new("TextLabel")
 Title.Parent = Frame
 Title.Size = UDim2.new(1,0,0,30)
 Title.Text = "Zaza Hub - by Zaza"
-Title.BackgroundColor3 = Color3.fromRGB(0,0,0)
-Title.TextColor3 = Color3.fromRGB(255,255,255)
+Title.TextColor3 = Color3.new(1,1,1)
+Title.BackgroundTransparency = 1
 
 local Toggle = Instance.new("TextButton")
 Toggle.Parent = Frame
-Toggle.Size = UDim2.new(1,-20,0,30)
-Toggle.Position = UDim2.new(0,10,0,40)
-Toggle.Text = "Kill Aura: OFF"
+Toggle.Size = UDim2.new(0.8,0,0,40)
+Toggle.Position = UDim2.new(0.1,0,0.4,0)
+Toggle.Text = "Kill Aura OFF"
+Toggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
+Toggle.TextColor3 = Color3.new(1,1,1)
 
-local TargetBox = Instance.new("TextBox")
-TargetBox.Parent = Frame
-TargetBox.Size = UDim2.new(1,-20,0,30)
-TargetBox.Position = UDim2.new(0,10,0,80)
-TargetBox.PlaceholderText = "Target Player Name"
+local Min = Instance.new("TextButton")
+Min.Parent = Frame
+Min.Size = UDim2.new(0,30,0,30)
+Min.Position = UDim2.new(1,-35,0,0)
+Min.Text = "-"
 
-local Minimize = Instance.new("TextButton")
-Minimize.Parent = Frame
-Minimize.Size = UDim2.new(0,30,0,30)
-Minimize.Position = UDim2.new(1,-30,0,0)
-Minimize.Text = "-"
+local MinFrame = Instance.new("Frame")
+MinFrame.Parent = ScreenGui
+MinFrame.Size = UDim2.new(0,120,0,40)
+MinFrame.Position = UDim2.new(0.4,0,0.4,0)
+MinFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+MinFrame.Visible = false
+MinFrame.Active = true
+MinFrame.Draggable = true
 
-local Minimized = false
+local Open = Instance.new("TextButton")
+Open.Parent = MinFrame
+Open.Size = UDim2.new(1,0,1,0)
+Open.Text = "Zaza Hub"
 
-Minimize.MouseButton1Click:Connect(function()
-	if Minimized then
-		Frame.Size = UDim2.new(0,220,0,160)
-		Minimized = false
-	else
-		Frame.Size = UDim2.new(0,220,0,30)
-		Minimized = true
-	end
+Min.MouseButton1Click:Connect(function()
+Frame.Visible = false
+MinFrame.Visible = true
+end)
+
+Open.MouseButton1Click:Connect(function()
+Frame.Visible = true
+MinFrame.Visible = false
 end)
 
 Toggle.MouseButton1Click:Connect(function()
-	KillAura = not KillAura
-	if KillAura then
-		Toggle.Text = "Kill Aura: ON"
-	else
-		Toggle.Text = "Kill Aura: OFF"
-	end
-end)
 
-TargetBox.FocusLost:Connect(function()
-	TargetName = TargetBox.Text
-end)
+KillAura = not KillAura
 
--- buscar jugador mas cercano
-local function GetClosestPlayer()
-	local closest = nil
-	local shortest = Range
-
-	for _,player in pairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-
-			local distance = (LocalPlayer.Character.HumanoidRootPart.Position -
-			player.Character.HumanoidRootPart.Position).Magnitude
-
-			if distance < shortest then
-				shortest = distance
-				closest = player
-			end
-		end
-	end
-
-	return closest
+if KillAura then
+Toggle.Text = "Kill Aura ON"
+else
+Toggle.Text = "Kill Aura OFF"
 end
 
-RunService.RenderStepped:Connect(function()
-	if KillAura and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+end)
 
-		local targetPlayer
+-- KILL AURA
+RunService.Heartbeat:Connect(function()
 
-		if TargetName and TargetName ~= "" then
-			targetPlayer = Players:FindFirstChild(TargetName)
-		else
-			targetPlayer = GetClosestPlayer()
-		end
+if not KillAura then return end
+if not LocalPlayer.Character then return end
 
-		if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
-			targetPlayer.Character.Humanoid:TakeDamage(5)
-		end
-	end
+local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+if not myHRP then return end
+
+local closest
+local dist = Range
+
+for _,player in pairs(Players:GetPlayers()) do
+
+if player ~= LocalPlayer and player.Character then
+
+local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+local hum = player.Character:FindFirstChild("Humanoid")
+
+if hrp and hum and hum.Health > 0 then
+
+local mag = (hrp.Position - myHRP.Position).Magnitude
+
+if mag < dist then
+dist = mag
+closest = player
+end
+
+end
+end
+end
+
+if closest and closest.Character then
+
+local hum = closest.Character:FindFirstChild("Humanoid")
+
+if hum and HitRemote then
+pcall(function()
+HitRemote:InvokeServer(hum, myHRP.Position)
+end)
+end
+
+end
+
+task.wait(Speed)
+
 end)
