@@ -1,251 +1,217 @@
--- Zaza Hub PRO (Player List + Kill Aura)
+--// UNIVERSAL HUB SCRIPT
 
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
-local HitRemote = ReplicatedStorage
-:WaitForChild("Packages")
-:WaitForChild("Knit")
-:WaitForChild("Services")
-:WaitForChild("CombatService")
-:WaitForChild("RF")
-:WaitForChild("Hit")
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
+-- Load WindUI
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
+
+-- CONFIG
 local KillAura = false
 local Range = 35
+local Speed = 0.1
 local TargetPlayer = nil
 local AttackAll = false
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game.CoreGui
-ScreenGui.ResetOnSpawn = false
-
-local Main = Instance.new("Frame")
-Main.Parent = ScreenGui
-Main.Size = UDim2.new(0,260,0,340)
-Main.Position = UDim2.new(0.05,0,0.2,0)
-Main.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Main.BackgroundTransparency = 0.3
-Main.Active = true
-Main.Draggable = true
-
-local Title = Instance.new("TextLabel")
-Title.Parent = Main
-Title.Size = UDim2.new(1,0,0,30)
-Title.BackgroundTransparency = 1
-Title.Text = "Zaza Hub PRO"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.TextScaled = true
-Title.Font = Enum.Font.GothamBold
-
--- SPEED
-local SpeedBtn = Instance.new("TextButton")
-SpeedBtn.Parent = Main
-SpeedBtn.Size = UDim2.new(0.9,0,0,30)
-SpeedBtn.Position = UDim2.new(0.05,0,0.12,0)
-SpeedBtn.Text = "Speed OFF"
-
-local Speed = false
-
-SpeedBtn.MouseButton1Click:Connect(function()
-
-	Speed = not Speed
-
-	if Speed then
-		SpeedBtn.Text = "Speed ON"
-	else
-		SpeedBtn.Text = "Speed OFF"
-		LocalPlayer.Character.Humanoid.WalkSpeed = 16
-	end
-
+-- Buscar remote de ataque
+local HitRemote
+pcall(function()
+    HitRemote = ReplicatedStorage
+        :WaitForChild("Packages")
+        :WaitForChild("Knit")
+        :WaitForChild("Services")
+        :WaitForChild("CombatService")
+        :WaitForChild("RF")
+        :WaitForChild("Hit")
 end)
 
-RunService.RenderStepped:Connect(function()
+-- Encontrar jugador más cercano
+local function GetClosestPlayer()
 
-	if Speed and LocalPlayer.Character then
-		LocalPlayer.Character.Humanoid.WalkSpeed = 30
-	end
+    local closest = nil
+    local dist = Range
 
-end)
+    for _,player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
 
--- INFINITE JUMP
-local JumpBtn = Instance.new("TextButton")
-JumpBtn.Parent = Main
-JumpBtn.Size = UDim2.new(0.9,0,0,30)
-JumpBtn.Position = UDim2.new(0.05,0,0.24,0)
-JumpBtn.Text = "Infinite Jump OFF"
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            local hum = player.Character:FindFirstChild("Humanoid")
 
-local InfJump = false
+            if hrp and hum and hum.Health > 0 then
 
-JumpBtn.MouseButton1Click:Connect(function()
+                if TargetPlayer and player.Name ~= TargetPlayer then
+                    continue
+                end
 
-	InfJump = not InfJump
+                local mag = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
 
-	if InfJump then
-		JumpBtn.Text = "Infinite Jump ON"
-	else
-		JumpBtn.Text = "Infinite Jump OFF"
-	end
+                if mag < dist then
+                    dist = mag
+                    closest = player
+                end
 
-end)
+            end
+        end
+    end
 
-UserInputService.JumpRequest:Connect(function()
-
-	if InfJump then
-		LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-	end
-
-end)
-
--- KILL AURA
-local KillBtn = Instance.new("TextButton")
-KillBtn.Parent = Main
-KillBtn.Size = UDim2.new(0.9,0,0,30)
-KillBtn.Position = UDim2.new(0.05,0,0.36,0)
-KillBtn.Text = "Kill Aura OFF"
-
-KillBtn.MouseButton1Click:Connect(function()
-
-	KillAura = not KillAura
-
-	if KillAura then
-		KillBtn.Text = "Kill Aura ON"
-	else
-		KillBtn.Text = "Kill Aura OFF"
-	end
-
-end)
-
--- ATACAR A TODOS
-local AllBtn = Instance.new("TextButton")
-AllBtn.Parent = Main
-AllBtn.Size = UDim2.new(0.9,0,0,25)
-AllBtn.Position = UDim2.new(0.05,0,0.48,0)
-AllBtn.Text = "🌍 Atacar a todos"
-
-AllBtn.MouseButton1Click:Connect(function()
-
-	AttackAll = true
-	TargetPlayer = nil
-
-end)
-
--- LISTA DE JUGADORES
-local PlayerList = Instance.new("ScrollingFrame")
-PlayerList.Parent = Main
-PlayerList.Size = UDim2.new(0.9,0,0,100)
-PlayerList.Position = UDim2.new(0.05,0,0.58,0)
-PlayerList.CanvasSize = UDim2.new(0,0,0,0)
-PlayerList.BackgroundColor3 = Color3.fromRGB(30,30,30)
-
-local Layout = Instance.new("UIListLayout",PlayerList)
-
-local function UpdatePlayers()
-
-	PlayerList:ClearAllChildren()
-	Layout.Parent = PlayerList
-
-	for _,player in pairs(Players:GetPlayers()) do
-
-		if player ~= LocalPlayer then
-
-			local Btn = Instance.new("TextButton")
-			Btn.Parent = PlayerList
-			Btn.Size = UDim2.new(1,0,0,25)
-			Btn.Text = player.Name
-
-			Btn.MouseButton1Click:Connect(function()
-
-				TargetPlayer = player
-				AttackAll = false
-
-			end)
-
-		end
-
-	end
-
+    return closest
 end
 
-UpdatePlayers()
+-- Kill Aura Loop
+RunService.Heartbeat:Connect(function()
 
-Players.PlayerAdded:Connect(UpdatePlayers)
-Players.PlayerRemoving:Connect(UpdatePlayers)
+    if not KillAura then return end
+    if not LocalPlayer.Character then return end
+    if not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not HitRemote then return end
 
--- REJOIN
-local Rejoin = Instance.new("TextButton")
-Rejoin.Parent = Main
-Rejoin.Size = UDim2.new(0.9,0,0,25)
-Rejoin.Position = UDim2.new(0.05,0,0.85,0)
-Rejoin.Text = "Rejoin Server"
+    if AttackAll then
 
-Rejoin.MouseButton1Click:Connect(function()
+        for _,player in pairs(Players:GetPlayers()) do
 
-	game:GetService("TeleportService"):Teleport(game.PlaceId,LocalPlayer)
+            if player ~= LocalPlayer and player.Character then
 
-end)
+                local hum = player.Character:FindFirstChild("Humanoid")
 
--- ATAQUE
-task.spawn(function()
+                if hum and hum.Health > 0 then
 
-	while task.wait(0.3) do
+                    pcall(function()
+                        HitRemote:InvokeServer(hum, LocalPlayer.Character.HumanoidRootPart.Position)
+                    end)
 
-		if not KillAura then continue end
+                end
+            end
+        end
 
-		local char = LocalPlayer.Character
-		if not char then continue end
+    else
 
-		local myHRP = char:FindFirstChild("HumanoidRootPart")
-		if not myHRP then continue end
+        local target = GetClosestPlayer()
 
+        if target and target.Character then
 
-		if AttackAll then
+            local hum = target.Character:FindFirstChild("Humanoid")
 
-			for _,p in pairs(Players:GetPlayers()) do
+            if hum then
 
-				if p ~= LocalPlayer and p.Character then
+                pcall(function()
+                    HitRemote:InvokeServer(hum, LocalPlayer.Character.HumanoidRootPart.Position)
+                end)
 
-					local hum = p.Character:FindFirstChild("Humanoid")
-					local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            end
 
-					if hum and hrp and hum.Health > 0 then
+        end
 
-						local dist = (hrp.Position - myHRP.Position).Magnitude
+    end
 
-						if dist <= Range then
-							pcall(function()
-								HitRemote:InvokeServer(hum,myHRP.Position)
-							end)
-						end
-
-					end
-				end
-			end
-
-
-		elseif TargetPlayer and TargetPlayer.Character then
-
-			local hum = TargetPlayer.Character:FindFirstChild("Humanoid")
-			local hrp = TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-			if hum and hrp then
-
-				local dist = (hrp.Position - myHRP.Position).Magnitude
-
-				if dist <= Range then
-					pcall(function()
-						HitRemote:InvokeServer(hum,myHRP.Position)
-					end)
-				end
-
-			end
-
-		end
-
-	end
+    task.wait(Speed)
 
 end)
+
+-- CREAR HUB
+local Window = WindUI:CreateWindow({
+    Title = "Zaza Hub",
+    Author = "Joel",
+    Folder = "ZazaHub",
+    Icon = "solar:sword-bold",
+
+    OpenButton = {
+        Title = "Hub",
+        Draggable = true,
+        Enabled = true,
+        Size = UDim2.new(0,100,0,30) -- BOTON MAS PEQUEÑO
+    },
+})
+
+-- TAB COMBAT
+local CombatTab = Window:Tab({
+    Title = "Combat",
+    Icon = "solar:sword-bold"
+})
+
+CombatTab:Section({
+    Title = "Kill Aura"
+})
+
+-- Toggle KillAura
+CombatTab:Toggle({
+
+    Title = "Activar Kill Aura",
+
+    Callback = function(state)
+        KillAura = state
+    end
+
+})
+
+-- Slider Rango
+CombatTab:Slider({
+
+    Title = "Rango",
+
+    Value = Range,
+    Min = 10,
+    Max = 100,
+    Step = 1,
+
+    Callback = function(value)
+        Range = value
+    end
+
+})
+
+-- Slider Velocidad
+CombatTab:Slider({
+
+    Title = "Velocidad de Golpe",
+
+    Value = Speed,
+    Min = 0.05,
+    Max = 1,
+    Step = 0.01,
+
+    Callback = function(value)
+        Speed = value
+    end
+
+})
+
+-- Target por nombre
+CombatTab:Textbox({
+
+    Title = "Nombre del jugador",
+
+    Placeholder = "Escribe el nombre",
+
+    Callback = function(text)
+
+        if text == "" then
+            TargetPlayer = nil
+        else
+            TargetPlayer = text
+        end
+
+    end
+
+})
+
+-- Pegar a todos
+CombatTab:Toggle({
+
+    Title = "Pegar a todos",
+
+    Callback = function(state)
+        AttackAll = state
+    end
+
+})
+
+WindUI:Notify({
+    Title = "Zaza Hub cargado",
+    Content = "Kill Aura listo | Speed 0.1 | Range 35",
+    Duration = 5
+})
