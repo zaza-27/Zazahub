@@ -1,24 +1,22 @@
---// UNIVERSAL HUB SCRIPT
+--// Zaza Hub
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
--- Load WindUI
+-- UI
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
 -- CONFIG
 local KillAura = false
 local Range = 35
-local Speed = 0.1
+local Speed = 0.2
 local TargetPlayer = nil
 local AttackAll = false
 
--- Buscar remote de ataque
+-- BUSCAR REMOTE
 local HitRemote
 pcall(function()
     HitRemote = ReplicatedStorage
@@ -30,46 +28,17 @@ pcall(function()
         :WaitForChild("Hit")
 end)
 
--- Encontrar jugador más cercano
-local function GetClosestPlayer()
-
-    local closest = nil
-    local dist = Range
-
-    for _,player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            local hum = player.Character:FindFirstChild("Humanoid")
-
-            if hrp and hum and hum.Health > 0 then
-
-                if TargetPlayer and player.Name ~= TargetPlayer then
-                    continue
-                end
-
-                local mag = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-
-                if mag < dist then
-                    dist = mag
-                    closest = player
-                end
-
-            end
-        end
-    end
-
-    return closest
-end
-
--- Kill Aura Loop
+-- KILL AURA LOOP
 RunService.Heartbeat:Connect(function()
 
     if not KillAura then return end
     if not LocalPlayer.Character then return end
-    if not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
     if not HitRemote then return end
 
+    -- PEGAR A TODOS
     if AttackAll then
 
         for _,player in pairs(Players:GetPlayers()) do
@@ -77,30 +46,40 @@ RunService.Heartbeat:Connect(function()
             if player ~= LocalPlayer and player.Character then
 
                 local hum = player.Character:FindFirstChild("Humanoid")
+                local targetHRP = player.Character:FindFirstChild("HumanoidRootPart")
 
-                if hum and hum.Health > 0 then
+                if hum and targetHRP and hum.Health > 0 then
 
-                    pcall(function()
-                        HitRemote:InvokeServer(hum, LocalPlayer.Character.HumanoidRootPart.Position)
-                    end)
+                    local dist = (targetHRP.Position - hrp.Position).Magnitude
+
+                    if dist <= Range then
+                        pcall(function()
+                            HitRemote:InvokeServer(hum, hrp.Position)
+                        end)
+                    end
 
                 end
+
             end
         end
 
     else
 
-        local target = GetClosestPlayer()
+        -- SOLO OBJETIVO
+        if TargetPlayer and TargetPlayer.Character then
 
-        if target and target.Character then
+            local hum = TargetPlayer.Character:FindFirstChild("Humanoid")
+            local targetHRP = TargetPlayer.Character:FindFirstChild("HumanoidRootPart")
 
-            local hum = target.Character:FindFirstChild("Humanoid")
+            if hum and targetHRP and hum.Health > 0 then
 
-            if hum then
+                local dist = (targetHRP.Position - hrp.Position).Magnitude
 
-                pcall(function()
-                    HitRemote:InvokeServer(hum, LocalPlayer.Character.HumanoidRootPart.Position)
-                end)
+                if dist <= Range then
+                    pcall(function()
+                        HitRemote:InvokeServer(hum, hrp.Position)
+                    end)
+                end
 
             end
 
@@ -123,11 +102,11 @@ local Window = WindUI:CreateWindow({
         Title = "Hub",
         Draggable = true,
         Enabled = true,
-        Size = UDim2.new(0,100,0,30) -- BOTON MAS PEQUEÑO
+        Size = UDim2.new(0,100,0,30)
     },
 })
 
--- TAB COMBAT
+-- TAB
 local CombatTab = Window:Tab({
     Title = "Combat",
     Icon = "solar:sword-bold"
@@ -137,81 +116,104 @@ CombatTab:Section({
     Title = "Kill Aura"
 })
 
--- Toggle KillAura
+-- ACTIVAR AURA
 CombatTab:Toggle({
-
     Title = "Activar Kill Aura",
-
     Callback = function(state)
         KillAura = state
     end
-
 })
 
--- Slider Rango
+-- RANGO
 CombatTab:Slider({
-
     Title = "Rango",
-
-    Value = Range,
+    Value = 35,
     Min = 10,
-    Max = 100,
+    Max = 150,
     Step = 1,
-
     Callback = function(value)
         Range = value
     end
-
 })
 
--- Slider Velocidad
+-- VELOCIDAD
 CombatTab:Slider({
-
-    Title = "Velocidad de Golpe",
-
-    Value = Speed,
+    Title = "Velocidad",
+    Value = 0.2,
     Min = 0.05,
     Max = 1,
     Step = 0.01,
-
     Callback = function(value)
         Speed = value
     end
-
 })
 
--- Target por nombre
-CombatTab:Textbox({
-
-    Title = "Nombre del jugador",
-
-    Placeholder = "Escribe el nombre",
-
-    Callback = function(text)
-
-        if text == "" then
-            TargetPlayer = nil
-        else
-            TargetPlayer = text
-        end
-
-    end
-
-})
-
--- Pegar a todos
+-- PEGAR A TODOS
 CombatTab:Toggle({
-
     Title = "Pegar a todos",
-
     Callback = function(state)
         AttackAll = state
     end
-
 })
+
+-- QUITAR OBJETIVO
+CombatTab:Button({
+    Title = "Quitar objetivo",
+    Callback = function()
+        TargetPlayer = nil
+    end
+})
+
+-- LISTA DE JUGADORES
+CombatTab:Section({
+    Title = "Seleccionar jugador"
+})
+
+local function AddPlayer(player)
+
+    if player == LocalPlayer then return end
+
+    CombatTab:Button({
+        Title = player.Name,
+        Callback = function()
+            TargetPlayer = player
+        end
+    })
+
+end
+
+for _,player in pairs(Players:GetPlayers()) do
+    AddPlayer(player)
+end
+
+Players.PlayerAdded:Connect(function(player)
+    AddPlayer(player)
+end)
+
+-- BOTON FLOTANTE
+local FloatButton = Instance.new("TextButton")
+FloatButton.Parent = game.CoreGui
+FloatButton.Size = UDim2.new(0,50,0,50)
+FloatButton.Position = UDim2.new(0.9,0,0.5,0)
+FloatButton.Text = "⚡"
+FloatButton.BackgroundColor3 = Color3.fromRGB(20,20,20)
+FloatButton.TextScaled = true
+FloatButton.Draggable = true
+
+FloatButton.MouseButton1Click:Connect(function()
+
+    KillAura = not KillAura
+
+    if KillAura then
+        FloatButton.Text = "⚡ON"
+    else
+        FloatButton.Text = "⚡OFF"
+    end
+
+end)
 
 WindUI:Notify({
     Title = "Zaza Hub cargado",
-    Content = "Kill Aura listo | Speed 0.1 | Range 35",
+    Content = "Kill Aura listo | Range 35 | Speed 0.2",
     Duration = 5
 })
