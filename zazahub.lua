@@ -1,123 +1,91 @@
---// Enhanced Universal Hub 2026 Corregido
+--// Enhanced Universal Hub 2026 - Ultra Speed Version
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
-    UIS = game:GetService("UserInputService"),
     WS = game:GetService("Workspace"),
 }
-
 local lp = Services.PL.LocalPlayer
-local cam = Services.WS.CurrentCamera
 
 -- ====================== --
--- WHITELIST (Mantenida)
--- ====================== --
-local whitelistedUsers = { "CXCHXRRX_27", "Rarita_RmC4" }
-local function hasPermission()
-    for _, name in ipairs(whitelistedUsers) do if lp.Name == name then return true end end
-    return false
-end
-if not hasPermission() then lp:Kick("No autorizado") return end
-
--- ====================== --
--- CONFIGURACIÓN
+-- CONFIGURACIÓN DE PODER
 -- ====================== --
 local cfg = {
     KillAura = false,
-    AuraRange = 20,
-    HitboxSize = 15,
-    ShowHitbox = false,
-    Aimbot = false,
-    Speed = false,
-    SpeedValue = 30
+    AuraRange = 25,
+    AttackSpeed = 10, -- Cuántas veces atacar por cada ciclo (Aumentar para instakill)
+    HitboxSize = 20
 }
 
 -- ====================== --
--- LÓGICA DE ATAQUE REAL
+-- BUSCADOR DE REMOTES (Mejorado)
 -- ====================== --
 local function GetAttackRemote()
-    -- Intenta encontrar cualquier Remote que parezca de combate
+    -- Prioridad de búsqueda de remotos de daño comunes
+    local names = {"hit", "combat", "attack", "swing", "punch", "damage"}
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-            if v.Name:lower():find("hit") or v.Name:lower():find("attack") or v.Name:lower():find("swing") then
-                return v
+            for _, name in pairs(names) do
+                if v.Name:lower():find(name) then return v end
             end
         end
     end
     return nil
 end
 
-local function Atacar(target)
+-- ====================== --
+-- FUNCIÓN DE ATAQUE RAPID (MULTISHOT)
+-- ====================== --
+local function FastAttack(target)
     if not target or not target.Character then return end
-    local tool = lp.Character:FindFirstChildOfClass("Tool")
+    local hum = target.Character:FindFirstChild("Humanoid")
+    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+    local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
     
-    -- 1. Intentar usar la herramienta (Simular Click)
-    if tool then
-        tool:Activate()
-    end
+    if not hum or hum.Health <= 0 then return end
 
-    -- 2. Intentar disparar remotos encontrados automáticamente
-    local remote = GetAttackRemote()
-    if remote then
-        local args = {
-            [1] = target.Character:FindFirstChild("Humanoid"),
-            [2] = target.Character:FindFirstChild("HumanoidRootPart").Position
-        }
-        if remote:IsA("RemoteEvent") then
-            remote:FireServer(unpack(args))
-        else
-            pcall(function() remote:InvokeServer(unpack(args)) end)
-        end
+    -- Ejecutar múltiples ataques en un solo instante
+    for i = 1, cfg.AttackSpeed do
+        task.spawn(function()
+            -- 1. Activa la herramienta (físico)
+            if tool then tool:Activate() end
+            
+            -- 2. Spam de Remotos (lógico)
+            local remote = GetAttackRemote()
+            if remote then
+                local args = {
+                    [1] = hum,
+                    [2] = hrp.Position
+                }
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer(unpack(args))
+                else
+                    pcall(function() remote:InvokeServer(unpack(args)) end)
+                end
+            end
+        end)
     end
 end
 
 -- ====================== --
--- UI (RAYFIELD)
+-- BUCLE MAESTRO (ULTRA FAST)
 -- ====================== --
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-local Window = Rayfield:CreateWindow({ Name = "Enhanced Hub V2", LoadingTitle = "Cargando Fix..." })
-
-local CombatTab = Window:CreateTab("Combat")
-
-CombatTab:CreateToggle({
-    Name = "Kill Aura Agresivo",
-    CurrentValue = false,
-    Callback = function(Value)
-        cfg.KillAura = Value
-    end,
-})
-
-CombatTab:CreateSlider({
-    Name = "Rango de Ataque",
-    Range = {5, 50}, Increment = 1, CurrentValue = 20,
-    Callback = function(Value) cfg.AuraRange = Value end,
-})
-
--- ====================== --
--- BUCLE PRINCIPAL (HEARTBEAT)
--- ====================== --
-Services.RS.Heartbeat:Connect(function()
-    if not cfg.KillAura or not lp.Character then return end
-    
-    local myHRP = lp.Character:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return end
-
-    for _, v in pairs(Services.PL:GetPlayers()) do
-        if v ~= lp and v.Character and v.Character:FindFirstChild("Humanoid") then
-            local enemyHRP = v.Character:FindFirstChild("HumanoidRootPart")
-            local enemyHum = v.Character:FindFirstChild("Humanoid")
+task.spawn(function()
+    while task.wait(0.05) do -- Ciclo mucho más rápido que Heartbeat
+        if cfg.KillAura and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            local myPos = lp.Character.HumanoidRootPart.Position
             
-            if enemyHRP and enemyHum.Health > 0 then
-                local dist = (myHRP.Position - enemyHRP.Position).Magnitude
-                
-                if dist <= cfg.AuraRange then
-                    -- Intentar hacer daño
-                    Atacar(v)
+            for _, v in pairs(Services.PL:GetPlayers()) do
+                if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                    local enemyHRP = v.Character.HumanoidRootPart
+                    local dist = (myPos - enemyHRP.Position).Magnitude
                     
-                    -- Modificar Hitbox en tiempo real si está activado
-                    if cfg.HitboxSize > 2 then
+                    if dist <= cfg.AuraRange then
+                        -- Agrandar hitbox para asegurar el hit
                         enemyHRP.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
                         enemyHRP.CanCollide = false
+                        
+                        -- Ataque de ráfaga
+                        FastAttack(v)
                     end
                 end
             end
@@ -125,5 +93,8 @@ Services.RS.Heartbeat:Connect(function()
     end
 end)
 
--- Resto de funciones (Aimbot/Speed) mantenidas...
--- (Para ahorrar espacio no repetí el Fly/Speed, pero usa la misma lógica de arriba)
+-- ====================== --
+-- INTEGRACIÓN UI (Rayfield)
+-- ====================== --
+-- [Usa el mismo código de Rayfield que ya tienes para los Toggles]
+-- Solo asegúrate de que el Toggle de "Kill Aura" cambie cfg.KillAura = Value
