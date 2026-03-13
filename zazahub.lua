@@ -16,9 +16,10 @@ local cam = Services.WS.CurrentCamera
 -- ======================
 
 local whitelistedUsers = {
-    "CXCHXRRX_27", -- cambia por tu usuario
-    -- "Amigo1",
-    -- "Amigo2"
+    "CXCHXRRX_27",
+    "UsuarioAmigo1",
+    "UsuarioAmigo2",
+    "UsuarioAmigo3"
 }
 
 local function hasPermission()
