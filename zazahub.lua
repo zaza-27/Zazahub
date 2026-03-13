@@ -16,7 +16,7 @@ local cam = Services.WS.CurrentCamera
 -- ======================
 
 local whitelistedUsers = {
-    "cxchxrrx_27", -- cambia por tu usuario
+    "CXCHXRRX_27", -- cambia por tu usuario
     -- "Amigo1",
     -- "Amigo2"
 }
