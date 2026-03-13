@@ -10,7 +10,7 @@ local lp = Services.PL.LocalPlayer
 -- ====================== --
 -- WHITELIST FIJA
 -- ====================== --
-local whitelistedUsers = { "CXCHXRRX_27", "Rarita_RmC4" }
+local whitelistedUsers = { "CXCHXRRX_27", "Rarita_RmC4", "Rojas123728" }
 local function hasPermission()
     for _, name in ipairs(whitelistedUsers) do if lp.Name == name then return true end end
     return false
