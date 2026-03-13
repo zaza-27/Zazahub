@@ -1,18 +1,24 @@
--- Zaza Hub by Zaza
+--// UNIVERSAL HUB SCRIPT
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- Load WindUI
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
 -- CONFIG
 local KillAura = false
 local Range = 35
-local Speed = 0.3
+local Speed = 0.1
 local TargetPlayer = nil
+local AttackAll = false
 
--- BUSCAR REMOTE
+-- Buscar remote de ataque
 local HitRemote
 pcall(function()
     HitRemote = ReplicatedStorage
@@ -24,201 +30,188 @@ pcall(function()
         :WaitForChild("Hit")
 end)
 
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game.CoreGui
+-- Encontrar jugador más cercano
+local function GetClosestPlayer()
 
-local Frame = Instance.new("Frame")
-Frame.Parent = ScreenGui
-Frame.Size = UDim2.new(0,260,0,220)
-Frame.Position = UDim2.new(0.4,0,0.4,0)
-Frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Frame.Active = true
-Frame.Draggable = true
+    local closest = nil
+    local dist = Range
 
-local Title = Instance.new("TextLabel")
-Title.Parent = Frame
-Title.Size = UDim2.new(1,0,0,30)
-Title.Text = "Zaza Hub - by Zaza"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.BackgroundTransparency = 1
+    for _,player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
 
--- KILLAURA BOTON
-local Toggle = Instance.new("TextButton")
-Toggle.Parent = Frame
-Toggle.Size = UDim2.new(0.8,0,0,40)
-Toggle.Position = UDim2.new(0.1,0,0.25,0)
-Toggle.Text = "Kill Aura OFF"
-Toggle.BackgroundColor3 = Color3.fromRGB(60,60,60)
-Toggle.TextColor3 = Color3.new(1,1,1)
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            local hum = player.Character:FindFirstChild("Humanoid")
 
--- TARGET BOTON
-local TargetButton = Instance.new("TextButton")
-TargetButton.Parent = Frame
-TargetButton.Size = UDim2.new(0.8,0,0,40)
-TargetButton.Position = UDim2.new(0.1,0,0.5,0)
-TargetButton.Text = "Target: Closest"
-TargetButton.BackgroundColor3 = Color3.fromRGB(60,60,60)
-TargetButton.TextColor3 = Color3.new(1,1,1)
+            if hrp and hum and hum.Health > 0 then
 
--- TEXTO RANGO
-local RangeLabel = Instance.new("TextLabel")
-RangeLabel.Parent = Frame
-RangeLabel.Size = UDim2.new(0.6,0,0,30)
-RangeLabel.Position = UDim2.new(0.2,0,0.75,0)
-RangeLabel.Text = "Range: "..Range
-RangeLabel.TextColor3 = Color3.new(1,1,1)
-RangeLabel.BackgroundTransparency = 1
+                if TargetPlayer and player.Name ~= TargetPlayer then
+                    continue
+                end
 
--- BOTON MENOS
-local Minus = Instance.new("TextButton")
-Minus.Parent = Frame
-Minus.Size = UDim2.new(0,40,0,30)
-Minus.Position = UDim2.new(0.05,0,0.75,0)
-Minus.Text = "-"
+                local mag = (hrp.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
 
--- BOTON MAS
-local Plus = Instance.new("TextButton")
-Plus.Parent = Frame
-Plus.Size = UDim2.new(0,40,0,30)
-Plus.Position = UDim2.new(0.85,-40,0.75,0)
-Plus.Text = "+"
+                if mag < dist then
+                    dist = mag
+                    closest = player
+                end
 
-Minus.MouseButton1Click:Connect(function()
+            end
+        end
+    end
 
-if Range > 10 then
-Range = Range - 5
-RangeLabel.Text = "Range: "..Range
+    return closest
 end
 
-end)
-
-Plus.MouseButton1Click:Connect(function()
-
-if Range < 100 then
-Range = Range + 5
-RangeLabel.Text = "Range: "..Range
-end
-
-end)
-
--- MINIMIZAR
-local Min = Instance.new("TextButton")
-Min.Parent = Frame
-Min.Size = UDim2.new(0,30,0,30)
-Min.Position = UDim2.new(1,-35,0,0)
-Min.Text = "-"
-
-local Mini = Instance.new("Frame")
-Mini.Parent = ScreenGui
-Mini.Size = UDim2.new(0,120,0,40)
-Mini.Position = UDim2.new(1,-130,1,-60)
-Mini.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Mini.Visible = false
-Mini.Active = true
-Mini.Draggable = true
-
-local Open = Instance.new("TextButton")
-Open.Parent = Mini
-Open.Size = UDim2.new(1,0,1,0)
-Open.Text = "Zaza Hub"
-
-Min.MouseButton1Click:Connect(function()
-Frame.Visible = false
-Mini.Visible = true
-end)
-
-Open.MouseButton1Click:Connect(function()
-Frame.Visible = true
-Mini.Visible = false
-end)
-
--- ACTIVAR KILLAURA
-Toggle.MouseButton1Click:Connect(function()
-
-KillAura = not KillAura
-
-if KillAura then
-Toggle.Text = "Kill Aura ON"
-else
-Toggle.Text = "Kill Aura OFF"
-end
-
-end)
-
--- CAMBIAR TARGET
-local index = 1
-TargetButton.MouseButton1Click:Connect(function()
-
-local players = Players:GetPlayers()
-
-index = index + 1
-if index > #players then
-index = 1
-end
-
-if players[index] == LocalPlayer then
-index = index + 1
-end
-
-TargetPlayer = players[index]
-
-if TargetPlayer then
-TargetButton.Text = "Target: "..TargetPlayer.Name
-else
-TargetButton.Text = "Target: Closest"
-end
-
-end)
-
--- KILL AURA
+-- Kill Aura Loop
 RunService.Heartbeat:Connect(function()
 
-if not KillAura then return end
-if not LocalPlayer.Character then return end
+    if not KillAura then return end
+    if not LocalPlayer.Character then return end
+    if not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
+    if not HitRemote then return end
 
-local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-if not myHRP then return end
+    if AttackAll then
 
-local target = TargetPlayer
-local dist = Range
+        for _,player in pairs(Players:GetPlayers()) do
 
-if not target then
+            if player ~= LocalPlayer and player.Character then
 
-for _,player in pairs(Players:GetPlayers()) do
+                local hum = player.Character:FindFirstChild("Humanoid")
 
-if player ~= LocalPlayer and player.Character then
+                if hum and hum.Health > 0 then
 
-local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-local hum = player.Character:FindFirstChild("Humanoid")
+                    pcall(function()
+                        HitRemote:InvokeServer(hum, LocalPlayer.Character.HumanoidRootPart.Position)
+                    end)
 
-if hrp and hum and hum.Health > 0 then
+                end
+            end
+        end
 
-local mag = (hrp.Position - myHRP.Position).Magnitude
+    else
 
-if mag < dist then
-dist = mag
-target = player
-end
+        local target = GetClosestPlayer()
 
-end
-end
-end
+        if target and target.Character then
 
-end
+            local hum = target.Character:FindFirstChild("Humanoid")
 
-if target and target.Character then
+            if hum then
 
-local hum = target.Character:FindFirstChild("Humanoid")
+                pcall(function()
+                    HitRemote:InvokeServer(hum, LocalPlayer.Character.HumanoidRootPart.Position)
+                end)
 
-if hum and HitRemote then
-pcall(function()
-HitRemote:InvokeServer(hum, myHRP.Position)
-end)
-end
+            end
 
-end
+        end
 
-task.wait(Speed)
+    end
+
+    task.wait(Speed)
 
 end)
+
+-- CREAR HUB
+local Window = WindUI:CreateWindow({
+    Title = "Zaza Hub",
+    Author = "Joel",
+    Folder = "ZazaHub",
+    Icon = "solar:sword-bold",
+
+    OpenButton = {
+        Title = "Hub",
+        Draggable = true,
+        Enabled = true,
+        Size = UDim2.new(0,100,0,30) -- BOTON MAS PEQUEÑO
+    },
+})
+
+-- TAB COMBAT
+local CombatTab = Window:Tab({
+    Title = "Combat",
+    Icon = "solar:sword-bold"
+})
+
+CombatTab:Section({
+    Title = "Kill Aura"
+})
+
+-- Toggle KillAura
+CombatTab:Toggle({
+
+    Title = "Activar Kill Aura",
+
+    Callback = function(state)
+        KillAura = state
+    end
+
+})
+
+-- Slider Rango
+CombatTab:Slider({
+
+    Title = "Rango",
+
+    Value = Range,
+    Min = 10,
+    Max = 100,
+    Step = 1,
+
+    Callback = function(value)
+        Range = value
+    end
+
+})
+
+-- Slider Velocidad
+CombatTab:Slider({
+
+    Title = "Velocidad de Golpe",
+
+    Value = Speed,
+    Min = 0.05,
+    Max = 1,
+    Step = 0.01,
+
+    Callback = function(value)
+        Speed = value
+    end
+
+})
+
+-- Target por nombre
+CombatTab:Textbox({
+
+    Title = "Nombre del jugador",
+
+    Placeholder = "Escribe el nombre",
+
+    Callback = function(text)
+
+        if text == "" then
+            TargetPlayer = nil
+        else
+            TargetPlayer = text
+        end
+
+    end
+
+})
+
+-- Pegar a todos
+CombatTab:Toggle({
+
+    Title = "Pegar a todos",
+
+    Callback = function(state)
+        AttackAll = state
+    end
+
+})
+
+WindUI:Notify({
+    Title = "Zaza Hub cargado",
+    Content = "Kill Aura listo | Speed 0.1 | Range 35",
+    Duration = 5
+})
