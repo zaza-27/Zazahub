@@ -1,4 +1,4 @@
---// Enhanced Universal Hub 2026 - PURE KILL AURA PRO
+--// Enhanced Universal Hub 2026 - KILL AURA FIX
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
@@ -15,29 +15,26 @@ local function hasPermission()
     for _, name in ipairs(whitelistedUsers) do if lp.Name == name then return true end end
     return false
 end
-if not hasPermission() then lp:Kick("No autorizado") return end
+if not hasPermission() then lp:Kick("Acceso Denegado") return end
 
 -- ====================== --
--- CONFIGURACIÓN DE COMBATE
+-- CONFIGURACIÓN PURE COMBAT
 -- ====================== --
 local cfg = {
     KillAura = false,
     AuraRange = 25,
-    AttackSpeed = 20, -- Ráfaga optimizada
+    AttackSpeed = 25, -- Ráfaga agresiva
     TargetMode = "Todos (Cercano)",
     SelectedPlayer = "Ninguno"
 }
 
--- Buscador de Remotos Ultra-Rápido
-local CachedRemote = nil
+-- Buscador de Remotos de Daño (Optimizado)
 local function GetDamageRemote()
-    if CachedRemote and CachedRemote.Parent then return CachedRemote end
-    local names = {"Hit", "Attack", "Combat", "Damage", "Swing", "Punch"}
+    local names = {"Hit", "Attack", "Combat", "Damage", "Swing", "Punch", "Remote", "Slash"}
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
             for _, n in pairs(names) do
                 if v.Name:find(n) or v.Name:lower():find(n:lower()) then
-                    CachedRemote = v
                     return v
                 end
             end
@@ -47,24 +44,25 @@ local function GetDamageRemote()
 end
 
 -- ====================== --
--- FUNCIÓN DE ATAQUE (NO COOLDOWN)
+-- LÓGICA DE ATAQUE (SIN HITBOX)
 -- ====================== --
-local function Attack(target)
+local function ExecuteAttack(target)
     if not target or not target.Character then return end
-    local hum = target.Character:FindFirstChildOfClass("Humanoid")
-    local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+    local char = target.Character
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
     local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
     
-    if not hum or hum.Health <= 0 then return end
-    local remote = GetDamageRemote()
+    if not hum or hum.Health <= 0 or not hrp then return end
     
-    -- Activar herramienta físicamente
+    local remote = GetDamageRemote()
     if tool then tool:Activate() end 
 
-    -- Enviar ráfaga de daño al servidor
+    -- Ráfaga de daño directo al servidor
     for i = 1, cfg.AttackSpeed do
         task.spawn(function()
             if remote then
+                -- Diferentes formatos de argumentos para asegurar que el golpe cuente
                 local args = {[1] = hum, [2] = hrp.Position}
                 if remote:IsA("RemoteEvent") then
                     remote:FireServer(unpack(args))
@@ -79,52 +77,46 @@ end
 -- ====================== --
 -- BUSCADOR DE OBJETIVO CERCANO
 -- ====================== --
-local function GetClosestPlayer()
-    local closest = nil
-    local shortestDist = cfg.AuraRange
+local function GetClosest()
+    local target = nil
+    local dist = cfg.AuraRange
     local myHRP = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-    
     if not myHRP then return nil end
 
     for _, v in pairs(Services.PL:GetPlayers()) do
         if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local eHum = v.Character:FindFirstChildOfClass("Humanoid")
             if eHum and eHum.Health > 0 then
-                local dist = (myHRP.Position - v.Character.HumanoidRootPart.Position).Magnitude
-                if dist < shortestDist then
-                    shortestDist = dist
-                    closest = v
+                local mag = (myHRP.Position - v.Character.HumanoidRootPart.Position).Magnitude
+                if mag < dist then
+                    dist = mag
+                    target = v
                 end
             end
         end
     end
-    return closest
+    return target
 end
 
 -- ====================== --
--- BUCLE MAESTRO DE COMBATE
+-- BUCLE MAESTRO
 -- ====================== --
 Services.RS.Heartbeat:Connect(function()
     if not cfg.KillAura or not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
 
     local target = nil
-
     if cfg.TargetMode == "Solo Seleccionado" then
-        -- Buscar específicamente al jugador seleccionado en el Dropdown
         local p = Services.PL:FindFirstChild(cfg.SelectedPlayer)
         if p and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (lp.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if dist <= cfg.AuraRange then
-                target = p
-            end
+            local d = (lp.Character.HumanoidRootPart.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if d <= cfg.AuraRange then target = p end
         end
     else
-        -- Modo "Todos" concentrado en el más cercano para evitar lag masivo
-        target = GetClosestPlayer()
+        target = GetClosest()
     end
 
     if target then
-        Attack(target)
+        ExecuteAttack(target)
     end
 end)
 
@@ -133,20 +125,20 @@ end)
 -- ====================== --
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "Kill Aura Pro V9",
-    LoadingTitle = "Cargando Motor de Combate...",
+    Name = "Kill Aura V10 - Final Fix",
+    LoadingTitle = "Iniciando Sistema de Combate...",
     ConfigurationSaving = { Enabled = false }
 })
 
 local MainTab = Window:CreateTab("Combate")
 
--- Función para refrescar la lista de nombres
-local function GetPlayerList()
-    local names = {"Ninguno"}
+-- Función para la lista de jugadores
+local function UpdateList()
+    local tbl = {"Ninguno"}
     for _, v in pairs(Services.PL:GetPlayers()) do
-        if v ~= lp then table.insert(names, v.Name) end
+        if v ~= lp then table.insert(tbl, v.Name) end
     end
-    return names
+    return tbl
 end
 
 MainTab:CreateToggle({
@@ -164,34 +156,28 @@ MainTab:CreateSlider({
 })
 
 local PlayerDropdown = MainTab:CreateDropdown({
-    Name = "Fijar Objetivo (Target)",
-    Options = GetPlayerList(),
+    Name = "Lista de Jugadores (Objetivo)",
+    Options = UpdateList(),
     CurrentOption = {"Ninguno"},
-    MultipleOptions = false,
-    Callback = function(Option)
-        cfg.SelectedPlayer = Option[1]
-    end,
+    Callback = function(Option) cfg.SelectedPlayer = Option[1] end,
 })
 
 MainTab:CreateDropdown({
-    Name = "Modo de Selección",
+    Name = "Modo de Aura",
     Options = {"Todos (Cercano)", "Solo Seleccionado"},
     CurrentOption = {"Todos (Cercano)"},
-    MultipleOptions = false,
-    Callback = function(Option)
-        cfg.TargetMode = Option[1]
-    end,
+    Callback = function(Option) cfg.TargetMode = Option[1] end,
 })
 
 MainTab:CreateButton({
-    Name = "Actualizar Lista de Jugadores",
+    Name = "Refrescar Lista de Jugadores",
     Callback = function()
-        PlayerDropdown:Set(GetPlayerList())
+        PlayerDropdown:Set(UpdateList())
     end,
 })
 
 Rayfield:Notify({
-    Title = "Aura Lista",
-    Content = "ESP eliminado. Kill Aura enfocado en estabilidad y velocidad.",
+    Title = "Limpieza Completada",
+    Content = "ESP y Hitbox eliminados. Kill Aura optimizado.",
     Duration = 5,
 })
