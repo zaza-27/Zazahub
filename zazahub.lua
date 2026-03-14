@@ -1,4 +1,4 @@
---// Enhanced Universal Hub 2026 - V13 SPEED OVERLOAD
+--// Enhanced Universal Hub 2026 - ULTIMATE FIX
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
@@ -18,36 +18,34 @@ end
 if not hasPermission() then lp:Kick("No autorizado") return end
 
 -- ====================== --
--- CONFIGURACIÓN EXTREMA
+-- CONFIGURACIÓN
 -- ====================== --
 local cfg = {
     KillAura = false,
     AuraRange = 25,
-    AttackSpeed = 40, -- Aumentado a 40 ráfagas por frame
+    AttackSpeed = 40, 
     TargetMode = "Todos (Cercano)",
     SelectedPlayer = "Ninguno"
 }
 
--- Memoria Rápida de Remotos
-local CachedRemotes = {}
-local function UpdateRemoteCache()
-    table.clear(CachedRemotes)
+-- ====================== --
+-- MOTOR DE ATAQUE MULTI-MÉTODO
+-- ====================== --
+local function GetRemotes()
+    local found = {}
     local names = {"Hit", "Attack", "Combat", "Damage", "Swing", "Punch", "Slash", "Apply"}
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
             for _, n in pairs(names) do
                 if v.Name:find(n) or v.Name:lower():find(n:lower()) then
-                    table.insert(CachedRemotes, v)
+                    table.insert(found, v)
                 end
             end
         end
     end
+    return found
 end
-UpdateRemoteCache()
 
--- ====================== --
--- MOTOR DE ATAQUE VELOCIDAD LUZ
--- ====================== --
 local function Attack(target)
     if not target or not target.Character then return end
     local char = target.Character
@@ -57,15 +55,15 @@ local function Attack(target)
     
     if not hum or hum.Health <= 0 or not hrp then return end
     
-    if tool then tool:Activate() end 
+    local remotes = GetRemotes()
+    if tool then tool:Activate() end -- Intento de click físico
 
-    -- Ejecución de ráfaga sin delay
     task.spawn(function()
         for i = 1, cfg.AttackSpeed do
-            for _, remote in ipairs(CachedRemotes) do
+            -- Intentamos disparar todos los remotos encontrados con varios formatos
+            for _, remote in pairs(remotes) do
                 pcall(function()
                     if remote:IsA("RemoteEvent") then
-                        -- Enviamos 3 formatos de daño en un solo micro-segundo
                         remote:FireServer(hum, hrp.Position)
                         remote:FireServer(char, hrp)
                         remote:FireServer(hum)
@@ -75,10 +73,12 @@ local function Attack(target)
                 end)
             end
             
-            -- Si la herramienta tiene remotos propios, dispararlos también
+            -- Método especial: Si la herramienta tiene su propio remoto
             if tool then
-                for _, v in ipairs(tool:GetChildren()) do
-                    if v:IsA("RemoteEvent") then v:FireServer(hum, hrp.Position) end
+                for _, v in pairs(tool:GetDescendants()) do
+                    if v:IsA("RemoteEvent") then
+                        v:FireServer(hum, hrp.Position)
+                    end
                 end
             end
         end
@@ -86,16 +86,14 @@ local function Attack(target)
 end
 
 -- ====================== --
--- SELECCIÓN DE OBJETIVO (OPTIMIZADA)
+-- LÓGICA DE SELECCIÓN
 -- ====================== --
 local function GetClosestPlayer()
     local closest = nil
     local shortestDist = cfg.AuraRange
-    local myPos = lp.Character.HumanoidRootPart.Position
-
-    for _, v in ipairs(Services.PL:GetPlayers()) do
+    for _, v in pairs(Services.PL:GetPlayers()) do
         if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = (myPos - v.Character.HumanoidRootPart.Position).Magnitude
+            local dist = (lp.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude
             if dist < shortestDist then
                 local hum = v.Character:FindFirstChildOfClass("Humanoid")
                 if hum and hum.Health > 0 then
@@ -109,9 +107,9 @@ local function GetClosestPlayer()
 end
 
 -- ====================== --
--- BUCLE RENDERSTEPPED (MÁXIMA VELOCIDAD)
+-- BUCLE PRINCIPAL
 -- ====================== --
-Services.RS.RenderStepped:Connect(function()
+Services.RS.Heartbeat:Connect(function()
     if not cfg.KillAura or not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
 
     if cfg.TargetMode == "Solo Seleccionado" then
@@ -131,8 +129,8 @@ end)
 -- ====================== --
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "Kill Aura V13 - GOD SPEED",
-    LoadingTitle = "Eliminando Cooldown de Daño...",
+    Name = "Kill Aura V13 - FINAL",
+    LoadingTitle = "Inyectando Multi-Method Aura...",
     ConfigurationSaving = { Enabled = false }
 })
 
@@ -147,13 +145,13 @@ end
 local CombatTab = Window:CreateTab("Combat")
 
 CombatTab:CreateToggle({
-    Name = "Kill Aura ULTRA-FAST",
+    Name = "Kill Aura (Multi-Method)",
     CurrentValue = false,
     Callback = function(Value) cfg.KillAura = Value end,
 })
 
 CombatTab:CreateSlider({
-    Name = "Rango de Ataque",
+    Name = "Rango",
     Range = {5, 50},
     Increment = 1,
     CurrentValue = 25,
@@ -161,31 +159,26 @@ CombatTab:CreateSlider({
 })
 
 local TargetDrop = CombatTab:CreateDropdown({
-    Name = "Objetivo Específico",
+    Name = "Seleccionar Objetivo",
     Options = GetPlayerNames(),
     CurrentOption = {"Ninguno"},
     Callback = function(Option) cfg.SelectedPlayer = Option[1] end,
 })
 
 CombatTab:CreateDropdown({
-    Name = "Modo de Selección",
+    Name = "Modo",
     Options = {"Todos (Cercano)", "Solo Seleccionado"},
     CurrentOption = {"Todos (Cercano)"},
     Callback = function(Option) cfg.TargetMode = Option[1] end,
 })
 
 CombatTab:CreateButton({
-    Name = "Refrescar Jugadores",
+    Name = "Refrescar Lista",
     Callback = function() TargetDrop:Set(GetPlayerNames()) end,
 })
 
-CombatTab:CreateButton({
-    Name = "Recargar Remotos (Update)",
-    Callback = function() UpdateRemoteCache() end,
-})
-
 Rayfield:Notify({
-    Title = "Modo Overload",
-    Content = "Velocidad de golpes aumentada al límite del motor gráfico.",
+    Title = "Sistema Listo",
+    Content = "Atacando vía Remotos, Tools y Handlers simultáneamente.",
     Duration = 5,
 })
