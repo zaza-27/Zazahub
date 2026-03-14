@@ -1,4 +1,4 @@
---// Enhanced Universal Hub 2026 - Final Stable Version (Hitbox Enhanced)
+--// Enhanced Universal Hub 2026 - Final Stable Version (Fixed Kill Aura)
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
@@ -38,7 +38,7 @@ local cfg = {
     TargetMode = "Todos",
     SelectedPlayer = "Ninguno",
     ESP = false,
-    HitboxSize = 30 -- Tamaño de la hitbox implementado
+    HitboxSize = 30
 }
 
 local originalHitboxSizes = {}
@@ -72,7 +72,7 @@ local function Attack(target)
     local remote = GetDamageRemote()
     if tool then tool:Activate() end 
 
-    -- Ráfaga de daño rápida
+    -- Ráfaga de daño rápida (Uso de task.spawn para no congelar el script)
     for i = 1, cfg.AttackSpeed do
         task.spawn(function()
             if remote then
@@ -88,41 +88,30 @@ local function Attack(target)
 end
 
 -- ====================== --
--- MANEJO DE HITBOXES (NUEVO)
--- ====================== --
-local function UpdateHitboxes()
-    for _, v in pairs(Services.PL:GetPlayers()) do
-        if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = v.Character.HumanoidRootPart
-            if cfg.KillAura then
-                if not originalHitboxSizes[hrp] then
-                    originalHitboxSizes[hrp] = hrp.Size
-                end
-                hrp.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
-                hrp.CanCollide = false
-            else
-                if originalHitboxSizes[hrp] then
-                    hrp.Size = originalHitboxSizes[hrp]
-                end
-            end
-        end
-    end
-end
-
--- ====================== --
 -- BUCLE MAESTRO
 -- ====================== --
 Services.RS.Heartbeat:Connect(function()
     if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
     local myHRP = lp.Character.HumanoidRootPart
 
-    -- Ejecutar actualización de hitboxes continuamente si el Aura está activa
-    UpdateHitboxes()
-
     for _, v in pairs(Services.PL:GetPlayers()) do
         if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local enemyHRP = v.Character.HumanoidRootPart
             local enemyHum = v.Character:FindFirstChildOfClass("Humanoid")
+
+            -- Manejo de Hitboxes dinámico dentro del bucle
+            if cfg.KillAura then
+                if not originalHitboxSizes[enemyHRP] then
+                    originalHitboxSizes[enemyHRP] = enemyHRP.Size
+                end
+                enemyHRP.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
+                enemyHRP.CanCollide = false
+            else
+                if originalHitboxSizes[enemyHRP] then
+                    enemyHRP.Size = originalHitboxSizes[enemyHRP]
+                    originalHitboxSizes[enemyHRP] = nil -- Limpiar para liberar memoria
+                end
+            end
 
             -- Lógica del Kill Aura
             if cfg.KillAura and enemyHum and enemyHum.Health > 0 then
@@ -135,6 +124,7 @@ Services.RS.Heartbeat:Connect(function()
 
                 if canAttack then
                     local dist = (myHRP.Position - enemyHRP.Position).Magnitude
+                    -- Verificamos distancia (El aura atacará si está en rango o si la hitbox es lo suficientemente grande)
                     if dist <= cfg.AuraRange then
                         Attack(v)
                     end
@@ -182,15 +172,12 @@ end
 CombatTab:CreateToggle({
     Name = "Kill Aura Activo",
     CurrentValue = false,
-    Callback = function(Value) 
-        cfg.KillAura = Value 
-        if not Value then UpdateHitboxes() end -- Restaurar hitboxes al apagar
-    end,
+    Callback = function(Value) cfg.KillAura = Value end,
 })
 
 CombatTab:CreateSlider({
     Name = "Rango del Aura",
-    Range = {5, 50},
+    Range = {5, 100}, -- Aumentado para aprovechar la hitbox
     Increment = 1,
     CurrentValue = 25,
     Callback = function(Value) cfg.AuraRange = Value end,
@@ -235,6 +222,6 @@ VisualTab:CreateToggle({
 
 Rayfield:Notify({
     Title = "Whitelist Cargada",
-    Content = "Bienvenido " .. lp.Name .. " (Rojas123728 añadido)",
+    Content = "Bienvenido " .. lp.Name .. " (Rojas123728)",
     Duration = 5,
 })
