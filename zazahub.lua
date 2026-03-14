@@ -1,4 +1,4 @@
---// Enhanced Universal Hub 2026 - Final Stable Version
+--// Enhanced Universal Hub 2026 - Final Stable Version (Hitbox Enhanced)
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
@@ -37,8 +37,11 @@ local cfg = {
     AttackSpeed = 20, 
     TargetMode = "Todos",
     SelectedPlayer = "Ninguno",
-    ESP = false
+    ESP = false,
+    HitboxSize = 30 -- Tamaño de la hitbox implementado
 }
+
+local originalHitboxSizes = {}
 
 -- Buscador de Remotos de Daño
 local function GetDamageRemote()
@@ -85,11 +88,36 @@ local function Attack(target)
 end
 
 -- ====================== --
+-- MANEJO DE HITBOXES (NUEVO)
+-- ====================== --
+local function UpdateHitboxes()
+    for _, v in pairs(Services.PL:GetPlayers()) do
+        if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = v.Character.HumanoidRootPart
+            if cfg.KillAura then
+                if not originalHitboxSizes[hrp] then
+                    originalHitboxSizes[hrp] = hrp.Size
+                end
+                hrp.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
+                hrp.CanCollide = false
+            else
+                if originalHitboxSizes[hrp] then
+                    hrp.Size = originalHitboxSizes[hrp]
+                end
+            end
+        end
+    end
+end
+
+-- ====================== --
 -- BUCLE MAESTRO
 -- ====================== --
 Services.RS.Heartbeat:Connect(function()
     if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
     local myHRP = lp.Character.HumanoidRootPart
+
+    -- Ejecutar actualización de hitboxes continuamente si el Aura está activa
+    UpdateHitboxes()
 
     for _, v in pairs(Services.PL:GetPlayers()) do
         if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
@@ -154,7 +182,10 @@ end
 CombatTab:CreateToggle({
     Name = "Kill Aura Activo",
     CurrentValue = false,
-    Callback = function(Value) cfg.KillAura = Value end,
+    Callback = function(Value) 
+        cfg.KillAura = Value 
+        if not Value then UpdateHitboxes() end -- Restaurar hitboxes al apagar
+    end,
 })
 
 CombatTab:CreateSlider({
@@ -163,6 +194,14 @@ CombatTab:CreateSlider({
     Increment = 1,
     CurrentValue = 25,
     Callback = function(Value) cfg.AuraRange = Value end,
+})
+
+CombatTab:CreateSlider({
+    Name = "Tamaño de Hitbox",
+    Range = {2, 100},
+    Increment = 1,
+    CurrentValue = 30,
+    Callback = function(Value) cfg.HitboxSize = Value end,
 })
 
 local TargetDrop = CombatTab:CreateDropdown({
@@ -199,4 +238,3 @@ Rayfield:Notify({
     Content = "Bienvenido " .. lp.Name .. " (Rojas123728 añadido)",
     Duration = 5,
 })
- 
