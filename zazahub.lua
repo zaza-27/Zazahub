@@ -1,4 +1,4 @@
---// Enhanced Universal Hub 2026 - Closest Target Edition
+--// Enhanced Universal Hub 2026 - Multi-Target Stable
 local Services = {
     RS = game:GetService("RunService"),
     PL = game:GetService("Players"),
@@ -24,6 +24,7 @@ if not hasPermission() then lp:Kick("Acceso Denegado.") return end
 local cfg = {
     KillAura = false,
     AuraRange = 25,
+    AttackSpeed = 5, -- Ajustado para permitir multi-target sin lag
     TargetMode = "Todos",
     SelectedPlayer = "Ninguno",
     ESP = false,
@@ -32,24 +33,19 @@ local cfg = {
 
 local originalHitboxSizes = {}
 
--- Buscador de Remotos de Daño
+-- Buscador de Remotos
 local function GetDamageRemote()
     local names = {"Hit", "Attack", "Combat", "Damage", "Swing", "Punch"}
-    local found = nil
-    pcall(function()
-        for _, v in pairs(game:GetDescendants()) do
-            if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
-                for _, n in pairs(names) do
-                    if v.Name:find(n) or v.Name:lower():find(n:lower()) then
-                        found = v
-                        break
-                    end
+    for _, v in pairs(game:GetDescendants()) do
+        if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+            for _, n in pairs(names) do
+                if v.Name:find(n) or v.Name:lower():find(n:lower()) then
+                    return v
                 end
             end
-            if found then break end
         end
-    end)
-    return found
+    end
+    return nil
 end
 
 -- ====================== --
@@ -66,50 +62,57 @@ local function Attack(target)
     local tool = lp.Character and lp.Character:FindFirstChildOfClass("Tool")
     if tool then tool:Activate() end 
 
-    if remote then
-        local args = {[1] = hum, [2] = hrp.Position}
-        if remote:IsA("RemoteEvent") then
-            remote:FireServer(unpack(args))
-        else
-            pcall(function() remote:InvokeServer(unpack(args)) end)
+    -- Ataque optimizado para múltiples objetivos
+    task.spawn(function()
+        if remote then
+            for i = 1, cfg.AttackSpeed do
+                local args = {[1] = hum, [2] = hrp.Position}
+                if remote:IsA("RemoteEvent") then
+                    remote:FireServer(unpack(args))
+                else
+                    pcall(function() remote:InvokeServer(unpack(args)) end)
+                end
+            end
         end
-    end
+    end)
 end
 
 -- ====================== --
--- BUCLE MAESTRO (Lógica de Cercanía)
+-- BUCLE MAESTRO (MULTI-TARGET)
 -- ====================== --
 Services.RS.Heartbeat:Connect(function()
-    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") or not cfg.KillAura then return end
-    
+    if not lp.Character or not lp.Character:FindFirstChild("HumanoidRootPart") then return end
     local myHRP = lp.Character.HumanoidRootPart
-    local closestTarget = nil
-    local shortestDist = cfg.AuraRange
 
     for _, v in pairs(Services.PL:GetPlayers()) do
         if v ~= lp and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
             local enemyHRP = v.Character.HumanoidRootPart
             local enemyHum = v.Character:FindFirstChildOfClass("Humanoid")
-            local dist = (myHRP.Position - enemyHRP.Position).Magnitude
 
-            -- Actualizar Hitbox solo si el Aura está activa
-            if not originalHitboxSizes[enemyHRP] then originalHitboxSizes[enemyHRP] = enemyHRP.Size end
-            enemyHRP.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
-            enemyHRP.CanCollide = false
+            -- Manejo de Hitboxes
+            if cfg.KillAura then
+                if not originalHitboxSizes[enemyHRP] then originalHitboxSizes[enemyHRP] = enemyHRP.Size end
+                enemyHRP.Size = Vector3.new(cfg.HitboxSize, cfg.HitboxSize, cfg.HitboxSize)
+                enemyHRP.CanCollide = false
+            elseif originalHitboxSizes[enemyHRP] then
+                enemyHRP.Size = originalHitboxSizes[enemyHRP]
+                originalHitboxSizes[enemyHRP] = nil
+            end
 
-            -- Buscar al más cercano dentro del rango
-            if enemyHum and enemyHum.Health > 0 and dist <= cfg.AuraRange then
-                if cfg.TargetMode == "Todos" then
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        closestTarget = v
+            -- Lógica del Kill Aura (Multi-Target)
+            if cfg.KillAura and enemyHum and enemyHum.Health > 0 then
+                local dist = (myHRP.Position - enemyHRP.Position).Magnitude
+                
+                if dist <= cfg.AuraRange then
+                    if cfg.TargetMode == "Todos" then
+                        Attack(v)
+                    elseif cfg.TargetMode == "Solo Seleccionado" and v.Name == cfg.SelectedPlayer then
+                        Attack(v)
                     end
-                elseif cfg.TargetMode == "Solo Seleccionado" and v.Name == cfg.SelectedPlayer then
-                    closestTarget = v
                 end
             end
 
-            -- Lógica del ESP
+            -- ESP
             local hl = v.Character:FindFirstChild("Highlight")
             if cfg.ESP then
                 if not hl then
@@ -120,11 +123,6 @@ Services.RS.Heartbeat:Connect(function()
             elseif hl then hl.Enabled = false end
         end
     end
-
-    -- ATACAR SOLO AL MÁS CERCANO (Previene el lag masivo)
-    if closestTarget then
-        Attack(closestTarget)
-    end
 end)
 
 -- ====================== --
@@ -133,12 +131,20 @@ end)
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "Enhanced Hub 2026",
-    LoadingTitle = "Iniciando Kill Aura...",
+    LoadingTitle = "Modo Multi-Target...",
     ConfigurationSaving = { Enabled = false }
 })
 
 local CombatTab = Window:CreateTab("Combat")
 local VisualTab = Window:CreateTab("Visuals")
+
+local function GetPlayerNames()
+    local p = {"Ninguno"}
+    for _, v in pairs(Services.PL:GetPlayers()) do
+        if v ~= lp then table.insert(p, v.Name) end
+    end
+    return p
+end
 
 CombatTab:CreateToggle({
     Name = "Kill Aura Activo",
@@ -147,27 +153,34 @@ CombatTab:CreateToggle({
 })
 
 CombatTab:CreateSlider({
-    Name = "Rango de Ataque",
+    Name = "Rango del Aura",
     Range = {5, 100},
     Increment = 1,
     CurrentValue = 25,
     Callback = function(Value) cfg.AuraRange = Value end,
 })
 
-CombatTab:CreateSlider({
-    Name = "Tamaño de Hitbox",
-    Range = {2, 100},
-    Increment = 1,
-    CurrentValue = 30,
-    Callback = function(Value) cfg.HitboxSize = Value end,
+local TargetDrop = CombatTab:CreateDropdown({
+    Name = "Fijar Objetivo",
+    Options = GetPlayerNames(),
+    CurrentOption = {"Ninguno"},
+    MultipleOptions = false,
+    Callback = function(Option) cfg.SelectedPlayer = Option[1] end,
 })
 
 CombatTab:CreateDropdown({
-    Name = "Modo de Objetivo",
+    Name = "Modo de Aura",
     Options = {"Todos", "Solo Seleccionado"},
     CurrentOption = {"Todos"},
     MultipleOptions = false,
     Callback = function(Option) cfg.TargetMode = Option[1] end,
+})
+
+CombatTab:CreateButton({
+    Name = "Actualizar Lista",
+    Callback = function()
+        TargetDrop:Set(GetPlayerNames())
+    end,
 })
 
 VisualTab:CreateToggle({
@@ -176,8 +189,4 @@ VisualTab:CreateToggle({
     Callback = function(Value) cfg.ESP = Value end,
 })
 
-Rayfield:Notify({
-    Title = "Aura Lista",
-    Content = "Modo: Jugador más cercano",
-    Duration = 5,
-})
+Rayfield:Notify({Title = "Actualizado", Content = "Atacando a todos en rango.", Duration = 5})
