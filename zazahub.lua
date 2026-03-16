@@ -1,294 +1,211 @@
--- =============================================
--- KRISP KILL AURA HUB 2026 - VERSIÓN COMPLETA OPTIMIZADA
--- Whitelist SEPARADA y fácil de editar
--- =============================================
+-- KRISPhub Kill Aura - Rayfield FIXED 2026
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
 
--- ==================== WHITELIST ====================
--- Edita SOLO aquí para agregar o quitar usuarios autorizados
-local WHITELIST = {
-    ["CXCHXRRX_27"]    = true,
-    ["Rarita_RmC4"]     = true,
-    ["diegoA7598"]     = true,
-    -- Agrega más usuarios abajo, uno por línea, así:
-    -- ["TuNombreAqui"] = true,
-    -- ["OtroAmigo"]    = true,
-}
-
--- =================================================================
---               SEGURIDAD - CHEQUEO DE WHITELIST
--- =================================================================
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-
-if not WHITELIST[LocalPlayer.Name] then
-    task.delay(0.5, function()
-        LocalPlayer:Kick("Acceso denegado → No estás autorizado.")
-    end)
+if not success or not Rayfield then
+    warn("Rayfield falló al cargar. Prueba otro executor o verifica internet.")
     return
 end
 
-print("[KRISP] Acceso autorizado para " .. LocalPlayer.Name .. " → Cargando hub...")
-
--- =================================================================
---                        CONFIGURACIÓN GLOBAL
--- =================================================================
-
-local Config = {
-    Enabled       = false,
-    Range         = 30,
-    RangeSq       = 30 * 30,
-    HitsPerCycle  = 80,
-    TargetMode    = "Todos (Cercano)",
-    SelectedPlayer = nil,
-    SearchText    = "",
-}
-
--- =================================================================
---                        REMOTE DE GOLPE
--- =================================================================
-
-local HitRemote = nil
-
-local function RefreshRemotes()
-    HitRemote = nil
-    pcall(function()
-        local path = game:GetService("ReplicatedStorage")
-                     :WaitForChild("Packages", 8)
-                     :WaitForChild("Knit", 5)
-                     :WaitForChild("Services", 5)
-                     :WaitForChild("CombatService", 5)
-                     :WaitForChild("RF", 5)
-                     :WaitForChild("Hit", 5)
-        if path and path:IsA("RemoteFunction") then
-            HitRemote = path
-        end
-    end)
-end
-
-RefreshRemotes()
-
--- =================================================================
---                        INTERFAZ RAYFIELD
--- =================================================================
-
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
 local Window = Rayfield:CreateWindow({
-    Name = "KRISP Kill Aura 2026",
-    LoadingTitle = "Cargando sistema ultra-rápido...",
-    LoadingSubtitle = "Modo high-frequency",
-    ConfigurationSaving = { Enabled = false }
+    Name = "KRISPhub Kill Aura",
+    LoadingTitle = "KRISPhub",
+    LoadingSubtitle = "Kill Aura v3 - 45+ hits/s",
+    ConfigurationSaving = { Enabled = false },
+    KeySystem = false,
 })
 
-local MainTab = Window:CreateTab("Principal", 4483362458)
+local Tab = Window:CreateTab("Main", 4483362458)
 
-MainTab:CreateToggle({
-    Name = "Kill Aura Activado",
-    CurrentValue = false,
-    Flag = "ToggleAura",
-    Callback = function(v) Config.Enabled = v end,
-})
+local Section = Tab:CreateSection("Controles Kill Aura")
 
-MainTab:CreateSlider({
-    Name = "Rango de ataque",
-    Range = {10, 80},
-    Increment = 1,
-    Suffix = " studs",
-    CurrentValue = 30,
-    Callback = function(v)
-        Config.Range = v
-        Config.RangeSq = v * v
-    end,
-})
+-- Variables
+local Enabled = false
+local UseClosestOnly = true
+local SelectedTarget = nil
+local AttackSpeed = 45   -- puedes subir a 50-55 si tu executor lo aguanta
+local Range = 23.5
+local MaxTargets = 6
+local Prediction = 0.14
 
-MainTab:CreateSlider({
-    Name = "Intensidad (hits por ciclo)",
-    Range = {30, 200},
-    Increment = 5,
-    Suffix = " hits",
-    CurrentValue = 80,
-    Callback = function(v) Config.HitsPerCycle = v end,
-})
+-- Remote (cámbialo si tu juego usa otro path)
+local HitRemote
+pcall(function()
+    HitRemote = game:GetService("ReplicatedStorage")
+        :WaitForChild("Packages", 8)
+        :WaitForChild("Knit", 6)
+        :WaitForChild("Services", 6)
+        :WaitForChild("CombatService", 6)
+        :WaitForChild("RF", 6)
+        :WaitForChild("Hit", 6)
+end)
 
-MainTab:CreateDropdown({
-    Name = "Modo de objetivo",
-    Options = {"Todos (Cercano)", "Solo Seleccionado"},
-    CurrentOption = {"Todos (Cercano)"},
-    Callback = function(opt) Config.TargetMode = opt[1] end,
-})
-
-local PlayerDropdown = MainTab:CreateDropdown({
-    Name = "Jugador objetivo",
-    Options = {"Ninguno"},
-    CurrentOption = {"Ninguno"},
-    Callback = function(opt)
-        if opt[1] == "Ninguno" then
-            Config.SelectedPlayer = nil
-        else
-            Config.SelectedPlayer = opt[1]
-        end
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "Refrescar lista de jugadores",
-    Callback = function()
-        local names = {"Ninguno"}
-        for _, p in Players:GetPlayers() do
-            if p ~= LocalPlayer then
-                table.insert(names, p.Name)
-            end
-        end
-        PlayerDropdown:Set(names)
-    end,
-})
-
-MainTab:CreateInput({
-    Name = "Buscar jugador",
-    PlaceholderText = "Escribe parte del nombre...",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(txt)
-        Config.SearchText = txt:lower()
-    end,
-})
-
-MainTab:CreateButton({
-    Name = "Recargar detección de remote",
-    Callback = function()
-        RefreshRemotes()
-        local count = HitRemote and 1 or 0
-        Rayfield:Notify({
-            Title = "Remotes actualizados",
-            Content = "Se encontró " .. count .. " remote de golpe.",
-            Duration = 4.5
-        })
-    end,
-})
-
-Rayfield:Notify({
-    Title = "KRISP Hub 2026 cargado",
-    Content = "Objetivo estable + golpes ultra-rápidos. ¡Prueba ya!",
-    Duration = 6
-})
-
-print("[KRISP UI] Interfaz cargada")
-
--- =================================================================
---               FUNCIÓN DE OBJETIVO MEJORADA
--- =================================================================
-
-local function GetClosestTarget()
-    local myChar = LocalPlayer.Character
-    if not myChar then return nil end
-    
-    local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
-    
-    local myPos = myRoot.Position
-    local bestPlayer = nil
-    local bestDistanceSq = Config.RangeSq + 1
-
-    -- 1. Seleccionado manualmente (máxima prioridad)
-    if Config.TargetMode == "Solo Seleccionado" and Config.SelectedPlayer then
-        local p = Players:FindFirstChild(Config.SelectedPlayer)
-        if p and p.Character then
-            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-            local hum = p.Character:FindFirstChild("Humanoid")
-            if hrp and hum and hum.Health > 0 then
-                return p
-            end
-        end
-    end
-
-    -- 2. Búsqueda por texto
-    if Config.SearchText ~= "" then
-        for _, p in Players:GetPlayers() do
-            if p == LocalPlayer then continue end
-            local nameLower = p.Name:lower()
-            local displayLower = (p.DisplayName or p.Name):lower()
-            if nameLower:find(Config.SearchText) or displayLower:find(Config.SearchText) then
-                local char = p.Character
-                if char then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    local hum = char:FindFirstChild("Humanoid")
-                    if hrp and hum and hum.Health > 0 then
-                        return p
-                    end
-                end
-            end
-        end
-    end
-
-    -- 3. Más cercano (último recurso)
-    for _, p in Players:GetPlayers() do
-        if p == LocalPlayer then continue end
-        local char = p.Character
-        if not char then continue end
-        
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
-        
-        if hrp and hum and hum.Health > 0.1 then
-            local distSq = (hrp.Position - myPos).Magnitude ^ 2
-            if distSq < bestDistanceSq then
-                bestDistanceSq = distSq
-                bestPlayer = p
-            end
-        end
-    end
-    
-    return bestPlayer
+if not HitRemote then
+    Rayfield:Notify({
+        Title = "Advertencia",
+        Content = "No se encontró el remote 'Hit'. Aura no golpeará.",
+        Duration = 8,
+    })
 end
 
--- =================================================================
---               MOTOR HIGH-SPEED + SPAM RÁPIDO
--- =================================================================
+-- Toggle principal
+Tab:CreateToggle({
+    Name = "Activar Kill Aura",
+    CurrentValue = false,
+    Callback = function(Value)
+        Enabled = Value
+        Rayfield:Notify({Title = "Kill Aura", Content = Value and "Activado (45 hits/s)" or "Desactivado", Duration = 3})
+    end,
+})
 
-RunService.RenderStepped:Connect(function()
-    if not Config.Enabled then return end
-    if not HitRemote then return end
+-- Toggle Closest Only
+Tab:CreateToggle({
+    Name = "Solo el más cercano (ignora objetivo)",
+    CurrentValue = true,
+    Callback = function(Value)
+        UseClosestOnly = Value
+    end,
+})
 
-    local target = GetClosestTarget()
-    if not target then return end
+-- Dropdown jugadores
+local PlayerOptions = {"Ninguno"}
+local function RefreshPlayers()
+    PlayerOptions = {"Ninguno"}
+    for _, plr in game.Players:GetPlayers() do
+        if plr ~= game.Players.LocalPlayer then
+            table.insert(PlayerOptions, plr.Name .. " (" .. (plr.DisplayName or plr.Name) .. ")")
+        end
+    end
+end
 
-    local char = target.Character
+RefreshPlayers()
+game.Players.PlayerAdded:Connect(RefreshPlayers)
+game.Players.PlayerRemoving:Connect(RefreshPlayers)
+
+Tab:CreateDropdown({
+    Name = "Objetivo Específico (si Closest OFF)",
+    Options = PlayerOptions,
+    CurrentOption = {"Ninguno"},
+    Callback = function(Option)
+        if Option == "Ninguno" then
+            SelectedTarget = nil
+            return
+        end
+        local name = Option:match("^([^%s]+)")
+        SelectedTarget = game.Players:FindFirstChild(name)
+    end,
+})
+
+-- Sliders
+Tab:CreateSlider({
+    Name = "Velocidad de Golpes",
+    Range = {20, 60},
+    Increment = 1,
+    Suffix = "hits/s",
+    CurrentValue = 45,
+    Callback = function(Value)
+        AttackSpeed = Value
+    end,
+})
+
+Tab:CreateSlider({
+    Name = "Rango Máximo",
+    Range = {15, 35},
+    Increment = 0.5,
+    Suffix = "studs",
+    CurrentValue = 23.5,
+    Callback = function(Value)
+        Range = Value
+    end,
+})
+
+Tab:CreateButton({
+    Name = "Refrescar Lista Jugadores",
+    Callback = function()
+        RefreshPlayers()
+        Rayfield:Notify({Title = "Lista Actualizada", Content = #PlayerOptions-1 .. " jugadores detectados", Duration = 4})
+    end,
+})
+
+-- Motor principal
+local lastHit = 0
+game:GetService("RunService").Heartbeat:Connect(function()
+    if not Enabled or not HitRemote then return end
+
+    local now = tick()
+    if now - lastHit < (1 / AttackSpeed) then return end
+    lastHit = now
+
+    local char = game.Players.LocalPlayer.Character
     if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
 
-    local hum = char:FindFirstChild("Humanoid")
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    
-    if not hum or hum.Health <= 0 or not hrp then return end
+    local myPos = root.Position
+    local targets = {}
 
-    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return end
+    if UseClosestOnly then
+        local closestDist = math.huge
+        local closest = nil
 
-    local distanceSq = (hrp.Position - myRoot.Position).Magnitude ^ 2
-    
-    if distanceSq <= Config.RangeSq then
-        task.spawn(function()
-            for i = 1, Config.HitsPerCycle do
-                local offset = Vector3.new(
-                    math.random(-80, 80)/100,
-                    math.random(40, 120)/100,
-                    math.random(-80, 80)/100
-                )
-                
-                task.spawn(function()
-                    pcall(function()
-                        HitRemote:InvokeServer(hum, hrp.Position + offset)
-                    end)
-                end)
-                
-                if i % 25 == 0 then
-                    task.wait(0.001)
+        for _, plr in game.Players:GetPlayers() do
+            if plr == game.Players.LocalPlayer then continue end
+            local tchar = plr.Character
+            if not tchar then continue end
+            local thrp = tchar:FindFirstChild("HumanoidRootPart")
+            local thum = tchar:FindFirstChild("Humanoid")
+            if not thrp or not thum or thum.Health <= 0 then continue end
+
+            local dist = (thrp.Position - myPos).Magnitude
+            if dist < closestDist and dist <= Range then
+                closestDist = dist
+                closest = {Hum = thum, Pos = thrp.Position + thrp.AssemblyLinearVelocity * Prediction}
+            end
+        end
+
+        if closest then table.insert(targets, closest) end
+    else
+        -- Objetivo + multi si no hay
+        if SelectedTarget and SelectedTarget.Character then
+            local tchar = SelectedTarget.Character
+            local thrp = tchar:FindFirstChild("HumanoidRootPart")
+            local thum = tchar:FindFirstChild("Humanoid")
+            if thrp and thum and thum.Health > 0 then
+                local dist = (thrp.Position - myPos).Magnitude
+                if dist <= Range then
+                    table.insert(targets, {Hum = thum, Pos = thrp.Position + thrp.AssemblyLinearVelocity * Prediction})
                 end
             end
+        end
+
+        if #targets == 0 then
+            for _, plr in game.Players:GetPlayers() do
+                if plr == game.Players.LocalPlayer then continue end
+                local tchar = plr.Character
+                if not tchar then continue end
+                local thrp = tchar:FindFirstChild("HumanoidRootPart")
+                local thum = tchar:FindFirstChild("Humanoid")
+                if not thrp or not thum or thum.Health <= 0 then continue end
+
+                local dist = (thrp.Position - myPos).Magnitude
+                if dist <= Range then
+                    table.insert(targets, {Hum = thum, Pos = thrp.Position + thrp.AssemblyLinearVelocity * Prediction})
+                    if #targets >= MaxTargets then break end
+                end
+            end
+        end
+    end
+
+    for _, tgt in targets do
+        task.spawn(function()
+            pcall(HitRemote.InvokeServer, HitRemote, tgt.Hum, tgt.Pos)
         end)
     end
 end)
 
--- =================================================================
-print("[KRISP] Todo cargado - edita la whitelist cuando quieras")
--- =================================================================        
+Rayfield:Notify({
+    Title = "Listo",
+    Content = "Kill Aura cargado | Prueba con 35-45 hits/s primero",
+    Duration = 6,
+})
