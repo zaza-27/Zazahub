@@ -3,8 +3,8 @@
 
 local Whitelist = {
     -- Pon aquí los nombres de usuario exactos (case-sensitive)
-    "Joel",             -- ejemplo: tu username
-    "TuAmigo123",       -- otro ejemplo
+    "CXCHXRRX_27",             -- ejemplo: tu username
+    "Rarita_RmC4",       -- otro ejemplo
     "ProGamerX",        -- agrega los que quieras
 }
 
