@@ -2,10 +2,9 @@
 -- + Whitelist simple por NOMBRE DE USUARIO (Username)
 
 local Whitelist = {
-    -- Pon aquí los nombres de usuario exactos (case-sensitive)
-    "CXCHXRRX_27",             -- ejemplo: tu username
-    "Rarita_RmC4",       -- otro ejemplo
-    "ProGamerX",        -- agrega los que quieras
+    "CXCHXRRX_27",
+    "Rarita_RmC4",
+    -- AGREGA AQUÍ TU USERNAME REAL QUE SALIÓ EN EL PRINT
 }
 
 local function IsWhitelisted(player)
@@ -20,14 +19,14 @@ local function IsWhitelisted(player)
     return false
 end
 
--- Solo los que estén en la lista pueden cargar/usar el script
-local LocalPlayer = game.Players.LocalPlayer
-if not IsWhitelisted(LocalPlayer) then
-    warn("No estás en la whitelist de KRISPhub Kill Aura (por username). Script bloqueado.")
-    return
-end
+-- Comentar estas líneas para probar sin whitelist
+-- local LocalPlayer = game.Players.LocalPlayer
+-- if not IsWhitelisted(LocalPlayer) then
+--     warn("No estás en la whitelist de KRISPhub Kill Aura (por username). Script bloqueado.")
+--     return
+-- end
 
--- Todo el script original a partir de aquí (sin ningún cambio)
+-- Resto del script sin cambios...
 
 local success, Rayfield = pcall(function()
     return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
@@ -54,12 +53,12 @@ local Section = Tab:CreateSection("Controles Kill Aura")
 local Enabled = false
 local UseClosestOnly = true
 local SelectedTarget = nil
-local AttackSpeed = 45   -- puedes subir a 50-55 si tu executor lo aguanta
+local AttackSpeed = 45
 local Range = 23.5
 local MaxTargets = 6
 local Prediction = 0.14
 
--- Remote (cámbialo si tu juego usa otro path)
+-- Remote
 local HitRemote
 pcall(function()
     HitRemote = game:GetService("ReplicatedStorage")
@@ -120,14 +119,38 @@ Tab:CreateDropdown({
     Callback = function(Option)
         if Option == "Ninguno" then
             SelectedTarget = nil
+            Rayfield:Notify({Title = "Objetivo", Content = "Ninguno seleccionado", Duration = 3})
             return
         end
-        local name = Option:match("^([^%s]+)")
-        SelectedTarget = game.Players:FindFirstChild(name)
+        
+        local username = Option:match("^([^%s]+)")
+        if username then
+            SelectedTarget = game.Players:FindFirstChild(username)
+            if SelectedTarget then
+                Rayfield:Notify({
+                    Title = "Objetivo seleccionado",
+                    Content = "Apuntando a: " .. username,
+                    Duration = 4
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Error",
+                    Content = "No se encontró al jugador: " .. username .. "\n(quizá salió o cambió nombre)",
+                    Duration = 6
+                })
+                SelectedTarget = nil
+            end
+        else
+            Rayfield:Notify({
+                Title = "Error",
+                Content = "No se pudo leer el nombre del dropdown",
+                Duration = 5
+            })
+        end
     end,
 })
 
--- Sliders
+-- Sliders y resto igual...
 Tab:CreateSlider({
     Name = "Velocidad de Golpes",
     Range = {20, 60},
@@ -158,7 +181,7 @@ Tab:CreateButton({
     end,
 })
 
--- Motor principal
+-- Motor principal (sin cambios)
 local lastHit = 0
 game:GetService("RunService").Heartbeat:Connect(function()
     if not Enabled or not HitRemote then return end
@@ -196,7 +219,6 @@ game:GetService("RunService").Heartbeat:Connect(function()
 
         if closest then table.insert(targets, closest) end
     else
-        -- Objetivo + multi si no hay
         if SelectedTarget and SelectedTarget.Character then
             local tchar = SelectedTarget.Character
             local thrp = tchar:FindFirstChild("HumanoidRootPart")
