@@ -1,4 +1,34 @@
 -- KRISPhub Kill Aura - Rayfield FIXED 2026
+-- + Whitelist simple por NOMBRE DE USUARIO (Username)
+
+local Whitelist = {
+    -- Pon aquí los nombres de usuario exactos (case-sensitive)
+    "Joel",             -- ejemplo: tu username
+    "TuAmigo123",       -- otro ejemplo
+    "ProGamerX",        -- agrega los que quieras
+}
+
+local function IsWhitelisted(player)
+    if not player or not player.Name then return false end
+    
+    for _, whitelistedName in ipairs(Whitelist) do
+        if player.Name == whitelistedName then
+            return true
+        end
+    end
+    
+    return false
+end
+
+-- Solo los que estén en la lista pueden cargar/usar el script
+local LocalPlayer = game.Players.LocalPlayer
+if not IsWhitelisted(LocalPlayer) then
+    warn("No estás en la whitelist de KRISPhub Kill Aura (por username). Script bloqueado.")
+    return
+end
+
+-- Todo el script original a partir de aquí (sin ningún cambio)
+
 local success, Rayfield = pcall(function()
     return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 end)
