@@ -1,14 +1,15 @@
--- [[ KRISPhub Kill Aura V13 - TARGET LOCK & FIX AUTO ]] --
+-- [[ KRISPhub Kill Aura V13.1 - PRIVATE ACCESS ]] --
 
--- 1. LISTA PRIVADA (Sustituye por los nombres exactos)
+-- 1. LISTA PRIVADA ACTUALIZADA
 local AccesoPrivado = {
     ["CXCHXRRX_27"] = true,
     ["Rarita_RmC4"] = true,
+    ["aupyiaiumb"] = true, -- Nuevo usuario añadido
 }
 
--- 2. BLOQUEO TOTAL
+-- 2. BLOQUEO TOTAL (Solo usuarios autorizados)
 if not AccesoPrivado[game:GetService("Players").LocalPlayer.Name] then
-    warn("ACCESO DENEGADO: Usuario no autorizado.")
+    warn("ACCESO DENEGADO: Usuario no autorizado para KRISPhub.")
     return 
 end
 
@@ -17,17 +18,17 @@ local success, Rayfield = pcall(function()
 end)
 
 local Window = Rayfield:CreateWindow({
-    Name = "KRISPhub V13 | TARGET FIX",
-    LoadingTitle = "Cargando Configuración Privada...",
+    Name = "KRISPhub V13.1 | PRIVATE",
+    LoadingTitle = "Verificando Acceso Privado...",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false,
 })
 
 local Tab = Window:CreateTab("Main", 4483362458)
 
--- Variables de Combate
+-- Variables de Combate (Configuración V7 Estable)
 local Enabled = false
-local UseClosestOnly = false -- Desactivado por defecto
+local UseClosestOnly = false
 local SelectedTarget = nil
 local AttackSpeed = 85 
 local Range = 40.0     
@@ -84,7 +85,7 @@ Tab:CreateSlider({
     Callback = function(Value) Range = Value end,
 })
 
--- [[ MOTOR DE ATAQUE V13 (CORREGIDO) ]] --
+-- [[ MOTOR DE ATAQUE V13.1 (LÓGICA MEJORADA) ]] --
 game:GetService("RunService").Heartbeat:Connect(function()
     if not Enabled or not HitRemote then return end
     
@@ -98,25 +99,25 @@ game:GetService("RunService").Heartbeat:Connect(function()
 
     local target = nil
 
-    -- LÓGICA DE PRIORIDAD ABSOLUTA
+    -- 1. SI HAY UN OBJETIVO SELECCIONADO (Prioridad Absoluta)
     if SelectedTarget then
-        -- Si hay un objetivo en el Dropdown, EL SCRIPT SOLO MIRARÁ A ESE OBJETIVO
         if SelectedTarget.Character and SelectedTarget.Character:FindFirstChild("Humanoid") then
             local thum = SelectedTarget.Character.Humanoid
             local thrp = SelectedTarget.Character:FindFirstChild("HumanoidRootPart")
             
+            -- Si el objetivo está vivo y en rango, le pega
             if thum.Health > 0 and thrp then
                 local dist = (thrp.Position - root.Position).Magnitude
                 if dist <= Range then
                     target = {Hum = thum, Pos = thrp.Position + (thrp.AssemblyLinearVelocity * Prediction)}
                 end
             else
-                -- Si el objetivo muere o no está en rango, NO HACE NADA (Evita el cambio automático)
+                -- Si muere o se sale de rango, el aura NO hace nada (Anti-cambio automático)
                 target = nil
             end
         end
+    -- 2. SI NO HAY OBJETIVO FIJO, USA EL MODO AUTOMÁTICO (Si está activo)
     elseif UseClosestOnly then
-        -- EL MODO AUTOMÁTICO SOLO FUNCIONA SI NO HAS SELECCIONADO A NADIE EN EL DROPDOWN
         local dist = Range
         for _, plr in game.Players:GetPlayers() do
             if plr == lp then continue end
@@ -131,6 +132,7 @@ game:GetService("RunService").Heartbeat:Connect(function()
         end
     end
 
+    -- Ejecución de ráfaga (Original V7)
     if target then
         task.spawn(function()
             pcall(HitRemote.InvokeServer, HitRemote, target.Hum, target.Pos)
@@ -138,4 +140,4 @@ game:GetService("RunService").Heartbeat:Connect(function()
     end
 end)
 
-Rayfield:Notify({Title = "KRISPhub V13", Content = "Fijación de objetivo corregida.", Duration = 4})
+Rayfield:Notify({Title = "KRISPhub V13.1", Content = "Acceso verificado para la lista privada.", Duration = 4})
