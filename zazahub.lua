@@ -1,71 +1,83 @@
--- [[ KRISPhub Kill Aura V7 - FIX WHITELIST & SPEED ]] --
+-- [[ KRISPhub Kill Aura - PRIVATE BLINDED EDITION 2026 ]] --
 
--- CONFIGURACIÓN DE SEGURIDAD
-local WhitelistNames = { 
+-- CONFIGURACIÓN DE SEGURIDAD (Solo estos usuarios pueden entrar)
+local UsuariosPermitidos = { 
     "CXCHXRRX_27", 
     "Rarita_RmC4",
-    game.Players.LocalPlayer.Name -- ESTO GARANTIZA QUE TÚ SIEMPRE ENTRES
+    -- Agrega más aquí si lo necesitas
 }
 
-local function CheckAuth()
+local function VerificarAcceso()
     local lp = game.Players.LocalPlayer
-    for _, name in ipairs(WhitelistNames) do
-        if lp.Name == name then 
-            return true 
-        end
+    for _, nombre in ipairs(UsuariosPermitidos) do
+        if lp.Name == nombre then return true end
     end
     return false
 end
 
--- Ejecución de la Whitelist
-if not CheckAuth() then
-    warn("ACCESO DENEGADO: Tu usuario no está en la lista.")
-    return
+-- Bloqueo de seguridad: Si no está en la lista, el script se autodestruye
+if not VerificarAcceso() then
+    warn("!!! KRISPhub SECURITY: ACCESO DENEGADO !!!")
+    return 
 end
 
--- CARGA DE RAYFIELD
+-- Carga de Rayfield
 local success, Rayfield = pcall(function() 
     return loadstring(game:HttpGet('https://sirius.menu/rayfield'))() 
 end)
 
-if not success then return end
+if not success or not Rayfield then return end
 
 local Window = Rayfield:CreateWindow({
-    Name = "KRISPhub V7 | FIX FINAL",
-    LoadingTitle = "Verificando Usuario...",
+    Name = "KRISPhub Kill Aura | PRIVATE",
+    LoadingTitle = "Verificando Credenciales...",
+    LoadingSubtitle = "Acceso Concedido",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false,
 })
 
-local Tab = Window:CreateTab("Combat", 4483362458)
+local Tab = Window:CreateTab("Main", 4483362458)
+local Section = Tab:CreateSection("Controles Kill Aura")
 
--- VARIABLES DE COMBATE
+-- Variables Restauradas
 local Enabled = false
-local UseClosestOnly = false
+local UseClosestOnly = true
 local SelectedTarget = nil
-local Range = 40.0
-local BurstPower = 20 -- Balance perfecto: Velocidad masiva sin lag
+local AttackSpeed = 85 -- Hits originales
+local Range = 40.0     -- Rango original
+local MaxTargets = 6
+local Prediction = 0.14
 
--- LOCALIZACIÓN DEL REMOTE
+-- Localización del Remote
 local HitRemote
 pcall(function()
-    HitRemote = game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("CombatService"):WaitForChild("RF"):WaitForChild("Hit")
+    HitRemote = game:GetService("ReplicatedStorage")
+    :WaitForChild("Packages", 8)
+    :WaitForChild("Knit", 6)
+    :WaitForChild("Services", 6)
+    :WaitForChild("CombatService", 6)
+    :WaitForChild("RF", 6)
+    :WaitForChild("Hit", 6)
 end)
 
--- INTERFAZ
+-- Toggle Principal
 Tab:CreateToggle({
-    Name = "ACTIVAR KILL AURA",
+    Name = "Activar Kill Aura",
     CurrentValue = false,
-    Callback = function(Value) Enabled = Value end,
+    Callback = function(Value)
+        Enabled = Value
+        Rayfield:Notify({Title = "Kill Aura", Content = Value and "Activado ("..AttackSpeed.." hits/s)" or "Desactivado", Duration = 3})
+    end,
 })
 
+-- Toggle Closest Only
 Tab:CreateToggle({
-    Name = "Modo Automático (Cercano)",
-    CurrentValue = false,
+    Name = "Solo el más cercano",
+    CurrentValue = true,
     Callback = function(Value) UseClosestOnly = Value end,
 })
 
--- LISTA DE OBJETIVOS
+-- Dropdown Jugadores
 local PlayerOptions = {"Ninguno"}
 local function RefreshPlayers()
     PlayerOptions = {"Ninguno"}
@@ -78,7 +90,7 @@ end
 RefreshPlayers()
 
 local PlayerDropdown = Tab:CreateDropdown({
-    Name = "FIJAR OBJETIVO (HARD LOCK)",
+    Name = "Objetivo Específico",
     Options = PlayerOptions,
     CurrentOption = {"Ninguno"},
     Callback = function(Option)
@@ -92,47 +104,63 @@ local PlayerDropdown = Tab:CreateDropdown({
 })
 
 Tab:CreateButton({
-    Name = "Refrescar Jugadores",
+    Name = "Refrescar Lista Jugadores",
     Callback = function() 
         RefreshPlayers()
         PlayerDropdown:Set(PlayerOptions)
     end,
 })
 
+-- Sliders
 Tab:CreateSlider({
-    Name = "Rango de Masacre",
-    Range = {10, 45},
+    Name = "Velocidad de Golpes",
+    Range = {20, 85},
     Increment = 1,
+    Suffix = "hits/s",
+    CurrentValue = 85,
+    Callback = function(Value) AttackSpeed = Value end,
+})
+
+Tab:CreateSlider({
+    Name = "Rango Máximo",
+    Range = {15, 40},
+    Increment = 0.5,
+    Suffix = "studs",
     CurrentValue = 40,
     Callback = function(Value) Range = Value end,
 })
 
--- MOTOR DE ATAQUE OPTIMIZADO (FLUIDO Y RÁPIDO)
+-- Motor de Ataque (Versión Estable V7)
+local lastHit = 0
 game:GetService("RunService").Heartbeat:Connect(function()
     if not Enabled or not HitRemote then return end
     
+    local now = tick()
+    if now - lastHit < (1 / AttackSpeed) then return end
+    lastHit = now
+
     local lp = game.Players.LocalPlayer
-    local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+    local char = lp.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    local targetData = nil
+    local targets = {}
 
-    -- Prioridad: Objetivo Seleccionado
-    if SelectedTarget and SelectedTarget.Character then
+    -- Selección de Objetivo
+    if not UseClosestOnly and SelectedTarget and SelectedTarget.Character then
         local tchar = SelectedTarget.Character
         local thum = tchar:FindFirstChild("Humanoid")
         local thrp = tchar:FindFirstChild("HumanoidRootPart")
-        if thum and thum.Health > 0 then
-            local dist = (thrp.Position - root.Position).Magnitude
-            if dist <= Range then
-                targetData = {Hum = thum, Pos = thrp.Position}
+        if thum and thum.Health > 0 and thrp then
+            if (thrp.Position - root.Position).Magnitude <= Range then
+                table.insert(targets, {Hum = thum, Pos = thrp.Position + (thrp.AssemblyLinearVelocity * Prediction)})
             end
         end
     end
 
-    -- Si no hay seleccionado o está lejos, usar el más cercano (si el modo está activo)
-    if not targetData and UseClosestOnly then
+    if #targets == 0 then
         local closestDist = Range
+        local closest = nil
         for _, plr in game.Players:GetPlayers() do
             if plr == lp then continue end
             local tchar = plr.Character
@@ -142,22 +170,23 @@ game:GetService("RunService").Heartbeat:Connect(function()
                 local dist = (thrp.Position - root.Position).Magnitude
                 if dist <= closestDist then
                     closestDist = dist
-                    targetData = {Hum = thum, Pos = thrp.Position}
+                    closest = {Hum = thum, Pos = thrp.Position + (thrp.AssemblyLinearVelocity * Prediction)}
                 end
             end
         end
+        if closest then table.insert(targets, closest) end
     end
 
     -- Ejecución de ráfaga
-    if targetData then
+    for _, tgt in targets do
         task.spawn(function()
-            for i = 1, BurstPower do
-                pcall(function() 
-                    HitRemote:InvokeServer(targetData.Hum, targetData.Pos) 
-                end)
-            end
+            pcall(HitRemote.InvokeServer, HitRemote, tgt.Hum, tgt.Pos)
         end)
     end
 end)
 
-Rayfield:Notify({Title = "KRISPhub V7", Content = "Whitelist Correcta. Disfruta de la masacre.", Duration = 4})
+Rayfield:Notify({
+    Title = "Autenticación Exitosa",
+    Content = "Whitelist Blindada Activa. Bienvenido de nuevo.",
+    Duration = 5
+})
