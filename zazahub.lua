@@ -1,9 +1,11 @@
+
 -- [[ KRISPhub Kill Aura V13.1 - PRIVATE ACCESS ]] --
 
 -- 1. LISTA PRIVADA ACTUALIZADA
 local AccesoPrivado = {
     ["CXCHXRRX_27"] = true,
     ["Rarita_RmC4"] = true,
+    ["Lhyyyyy_7"] = true,
     ["aupyiaiumb"] = true, -- Nuevo usuario añadido
 }
 
