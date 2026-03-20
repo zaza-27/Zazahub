@@ -5,6 +5,7 @@
 local AccesoPrivado = {
     ["CXCHXRRX_27"] = true,
     ["Rarita_RmC4"] = true,
+    ["Pedrin_zxmg"] = true,
     ["Lhyyyyy_7"] = true,
     ["aupyiaiumb"] = true, -- Nuevo usuario añadido
 }
