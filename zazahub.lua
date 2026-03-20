@@ -7,7 +7,7 @@ local AccesoPrivado = {
     ["Rarita_RmC4"] = true,
     ["Lhyyyyy_7"] = true,
     ["aupyiaiumb"] = true,
-    ["Rojas123728"] = true -- Tu usuario
+    ["usuario3"] = true, 
 }
 
 -- Verificación de Seguridad
