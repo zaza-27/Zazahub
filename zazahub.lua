@@ -16,115 +16,203 @@ end
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
-    Name = "Zazahub V13.2 | GOD MODE",
-    LoadingTitle = "Cargando Hyper-Hits...",
+    Name = "salchipapa",
+    LoadingTitle = "Cargando...",
     ConfigurationSaving = { Enabled = false },
     KeySystem = false,
 })
 
 local Tab = Window:CreateTab("Combat", 4483362458)
 
-local Enabled = false
-local UseClosestOnly = false
+-- Variables Kill Aura
+local KillAuraEnabled = false
+local UseClosestOnly = true
 local SelectedTarget = nil
-local AttackSpeed = 250
-local Range = 55.0      
-local Prediction = 0.18 
+local AttackSpeed = 120               -- inicio más agresivo
+local Range = 45
+local Prediction = 0.16
+
+local originalSizes = {}
 
 local HitRemote
 pcall(function()
-    HitRemote = game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("CombatService"):WaitForChild("RF"):WaitForChild("Hit")
+    HitRemote = game:GetService("ReplicatedStorage")
+        :WaitForChild("Packages")
+        :WaitForChild("Knit")
+        :WaitForChild("Services")
+        :WaitForChild("CombatService")
+        :WaitForChild("RF")
+        :WaitForChild("Hit")
 end)
 
-Tab:CreateToggle({
-    Name = "ACTIVAR KILL AURA",
-    CurrentValue = false,
-    Callback = function(Value) Enabled = Value end,
-})
+if not HitRemote then
+    Rayfield:Notify({Title = "Error", Content = "No se encontró Hit Remote", Duration = 5})
+    return
+end
 
-Tab:CreateToggle({
-    Name = "Modo Automático",
-    CurrentValue = false,
-    Callback = function(Value) UseClosestOnly = Value end,
-})
-
+-- Lista jugadores
 local PlayerOptions = {"Ninguno"}
-local function RefreshList()
+local function RefreshPlayerList()
     PlayerOptions = {"Ninguno"}
-    for _, plr in game.Players:GetPlayers() do
-        if plr ~= game.Players.LocalPlayer then table.insert(PlayerOptions, plr.Name) end
+    for _, plr in ipairs(game.Players:GetPlayers()) do
+        if plr ~= game.Players.LocalPlayer then
+            table.insert(PlayerOptions, plr.Name)
+        end
     end
 end
-RefreshList()
+RefreshPlayerList()
 
-local Drop = Tab:CreateDropdown({
-    Name = "FIJAR OBJETIVO",
+-- Interfaz
+Tab:CreateToggle({
+    Name = "Kill Aura",
+    CurrentValue = false,
+    Callback = function(Value)
+        KillAuraEnabled = Value
+        if Value then
+            for _, p in ipairs(game.Players:GetPlayers()) do
+                if p ~= game.Players.LocalPlayer and p.Character then
+                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        originalSizes[hrp] = hrp.Size
+                        hrp.Size = Vector3.new(40, 40, 40)
+                    end
+                end
+            end
+            Rayfield:Notify({Title = "salchipapa", Content = "Kill Aura ON - 10x hits + hitboxes expandidas", Duration = 3.5})
+        else
+            for hrp, oldSize in pairs(originalSizes) do
+                if hrp and hrp.Parent then hrp.Size = oldSize end
+            end
+            originalSizes = {}
+            Rayfield:Notify({Title = "salchipapa", Content = "Kill Aura OFF", Duration = 2.5})
+        end
+    end,
+})
+
+Tab:CreateToggle({
+    Name = "Modo Automático (Más cercano)",
+    CurrentValue = true,
+    Callback = function(Value)
+        UseClosestOnly = Value
+        if Value then SelectedTarget = nil end
+    end,
+})
+
+local TargetDropdown = Tab:CreateDropdown({
+    Name = "Fijar Objetivo",
     Options = PlayerOptions,
-    CurrentOption = {"Ninguno"},
+    CurrentOption = "Ninguno",
     Callback = function(Option)
         local name = (type(Option) == "table" and Option[1]) or Option
         if name == "Ninguno" then
             SelectedTarget = nil
         else
             SelectedTarget = game.Players:FindFirstChild(name)
+            UseClosestOnly = false
         end
     end,
 })
 
 Tab:CreateButton({
     Name = "Actualizar Lista",
-    Callback = function() 
-        RefreshList()
-        Drop:Set(PlayerOptions) 
-    end
+    Callback = function()
+        RefreshPlayerList()
+        TargetDropdown:Refresh(PlayerOptions, true)
+    end,
 })
 
+Tab:CreateSlider({
+    Name = "Ataques por Segundo",
+    Range = {1, 1000},
+    Increment = 50,
+    Suffix = " APS",
+    CurrentValue = 120,
+    Callback = function(Value)
+        AttackSpeed = Value
+    end,
+})
+
+Tab:CreateSlider({
+    Name = "Rango Máximo",
+    Range = {10, 100},
+    Increment = 5,
+    Suffix = " studs",
+    CurrentValue = 45,
+    Callback = function(Value)
+        Range = Value
+    end,
+})
+
+-- Loop Kill Aura - 10 invokes + intervalo ultra-rápido
+local lastAttack = 0
 game:GetService("RunService").Heartbeat:Connect(function()
-    if not Enabled or not HitRemote then return end
+    if not KillAuraEnabled or not HitRemote then return end
     
     local now = tick()
-    if now - (getgenv().lastHit or 0) < (1 / AttackSpeed) then return end
-    getgenv().lastHit = now
-
+    local cooldown = 1 / AttackSpeed
+    if now - lastAttack < cooldown then return end
+    lastAttack = now
+    
     local lp = game.Players.LocalPlayer
     local char = lp.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
-
+    
     local target = nil
-
-    if SelectedTarget and SelectedTarget.Character and SelectedTarget.Character:FindFirstChild("Humanoid") then
-        local thum = SelectedTarget.Character.Humanoid
-        local thrp = SelectedTarget.Character:FindFirstChild("HumanoidRootPart")
-        if thum.Health > 0 and thrp and (thrp.Position - root.Position).Magnitude <= Range then
-            target = {Hum = thum, Pos = thrp.Position + (thrp.AssemblyLinearVelocity * Prediction)}
+    
+    if SelectedTarget and SelectedTarget.Character then
+        local hum = SelectedTarget.Character:FindFirstChild("Humanoid")
+        local hrp = SelectedTarget.Character:FindFirstChild("HumanoidRootPart")
+        if hum and hum.Health > 0 and hrp then
+            local dist = (hrp.Position - root.Position).Magnitude
+            if dist <= Range then
+                target = {
+                    Hum = hum,
+                    Pos = hrp.Position + (hrp.AssemblyLinearVelocity * Prediction)
+                }
+            end
         end
-    elseif UseClosestOnly then
-        local dist = Range
-        for _, plr in game.Players:GetPlayers() do
+    end
+    
+    if not target and UseClosestOnly then
+        local closestDist = Range
+        for _, plr in ipairs(game.Players:GetPlayers()) do
             if plr == lp then continue end
             local pchar = plr.Character
-            if pchar and pchar:FindFirstChild("Humanoid") and pchar.Humanoid.Health > 0 and pchar:FindFirstChild("HumanoidRootPart") then
-                local m = (pchar.HumanoidRootPart.Position - root.Position).Magnitude
-                if m <= dist then
-                    dist = m
-                    target = {Hum = pchar.Humanoid, Pos = pchar.HumanoidRootPart.Position + (pchar.HumanoidRootPart.AssemblyLinearVelocity * Prediction)}
+            if pchar then
+                local hum = pchar:FindFirstChild("Humanoid")
+                local hrp = pchar:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    local dist = (hrp.Position - root.Position).Magnitude
+                    if dist <= closestDist then
+                        closestDist = dist
+                        target = {
+                            Hum = hum,
+                            Pos = hrp.Position + (hrp.AssemblyLinearVelocity * Prediction)
+                        }
+                    end
                 end
             end
         end
     end
-
+    
     if target then
-        task.spawn(function()
-            pcall(function() HitRemote:InvokeServer(target.Hum, target.Pos) end)
-            task.wait()
-            pcall(function() HitRemote:InvokeServer(target.Hum, target.Pos) end)
-            task.wait()
-            pcall(function() HitRemote:InvokeServer(target.Hum, target.Pos) end)
-            task.wait()
-            pcall(function() HitRemote:InvokeServer(target.Hum, target.Pos) end)
-        end)
+        -- 10 hits con micro-delay para no crashear tanto el cliente
+        for i = 1, 10 do
+            task.spawn(function()
+                pcall(function()
+                    HitRemote:InvokeServer(target.Hum, target.Pos)
+                end)
+            end)
+            task.wait(0.0005)  -- ~0.005s total para los 10 → muy rápido pero menos lag
+        end
     end
 end)
 
-Rayfield:Notify({Title = "Zazahub V13.2", Content = "Hyper-Hits Activos.", Duration = 4})
+Rayfield:Notify({
+    Title = "salchipapa",
+    Content = "Cargado - 10x hits por ciclo + intervalo ultra-rápido.\nSube APS con cuidado (lag/ban posible).",
+    Duration = 6
+})
+
+print("salchipapa | 10x damage mode + fast interval loaded")
